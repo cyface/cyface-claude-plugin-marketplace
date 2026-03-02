@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What This Is
 
-A local Claude Code plugin marketplace maintained by Cyface. It serves as a registry that maps plugin names to their source directories. There is no build system, no tests, and no dependencies — this is a content-only repository of JSON manifests and markdown reference files.
+A local Claude Code plugin marketplace maintained by Cyface Design. It serves as a registry that maps plugin names to their source directories. There is no build system, no tests, and no dependencies — this is a content-only repository of JSON manifests and markdown reference files.
 
 ## Repository Structure
 

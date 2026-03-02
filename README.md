@@ -1,6 +1,6 @@
-# Cyface Claude Code Plugin Marketplace
+# Cyface Design Claude Code Plugin Marketplace
 
-A local [Claude Code](https://claude.ai/code) plugin marketplace for custom plugins by Cyface.
+A local [Claude Code](https://claude.ai/code) plugin marketplace for custom plugins by Cyface Design.
 
 ## Plugins
 

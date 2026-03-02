@@ -1,7 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "cyface",
-  "description": "Cyface custom Claude Code plugins",
+  "description": "Cyface Design custom Claude Code plugins",
   "owner": {
     "name": "Tim White"
   },
