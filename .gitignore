@@ -1,0 +1,5 @@
+node_modules/
+.DS_Store
+
+# Plugin directories have their own git repos
+plugins/*/
