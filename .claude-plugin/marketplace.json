@@ -11,6 +11,12 @@
       "description": "Expert guidance for Alpine.js v3 and HTMX development — directives, attributes, patterns, and combined usage. Includes a proactive code reviewer for anti-patterns, accessibility, and security.",
       "source": "./plugins/alpine-htmx",
       "category": "development"
+    },
+    {
+      "name": "foundryvtt-dev",
+      "description": "Expert guidance for FoundryVTT v13 system and module development — ApplicationV2 migration, sheets, forms, actions, tabs, drag-drop, hooks, data model, testing, and i18n. Includes a proactive code reviewer for deprecated patterns and common mistakes. Not affiliated with Foundry Gaming LLC.",
+      "source": "./plugins/foundryvtt-dev",
+      "category": "development"
     }
   ]
 }
