@@ -17,6 +17,12 @@
       "description": "Expert guidance for FoundryVTT v13 system and module development — ApplicationV2 migration, sheets, forms, actions, tabs, drag-drop, hooks, data model, testing, and i18n. Includes a proactive code reviewer for deprecated patterns and common mistakes. Not affiliated with Foundry Gaming LLC.",
       "source": "./plugins/foundryvtt-dev",
       "category": "development"
+    },
+    {
+      "name": "ui-design-principles",
+      "description": "Expert UI/UX design guidance based on Universal Principles of Design — visual hierarchy, interaction patterns, cognitive load, accessibility, and layout. Includes a proactive design reviewer.",
+      "source": "./plugins/ui-design-principles",
+      "category": "development"
     }
   ]
 }

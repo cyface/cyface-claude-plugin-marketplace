@@ -8,6 +8,7 @@ A local [Claude Code](https://claude.ai/code) plugin marketplace for custom plug
 |--------|-------------|
 | [alpine-htmx](https://github.com/cyface/alpine-htmx-claude-plugin) | Expert guidance for Alpine.js v3 and HTMX development — directives, attributes, patterns, and combined usage. Includes a proactive code reviewer. |
 | [foundryvtt-dev](https://github.com/cyface/foundryvtt-dev-claude-plugin) | Expert guidance for FoundryVTT v13 system and module development — ApplicationV2, hooks, data model, testing, and i18n. Includes a proactive code reviewer. Not affiliated with Foundry Gaming LLC. |
+| [ui-design-principles](https://github.com/cyface/ui-design-principles-claude-plugin) | Expert UI/UX design guidance based on Universal Principles of Design — visual hierarchy, interaction patterns, cognitive load, accessibility, and layout. Includes a proactive design reviewer. |
 
 ## Setup
 
