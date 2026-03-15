@@ -23,6 +23,12 @@
       "description": "Expert UI/UX design guidance based on Universal Principles of Design — visual hierarchy, interaction patterns, cognitive load, accessibility, and layout. Includes a proactive design reviewer.",
       "source": "./plugins/ui-design-principles",
       "category": "development"
+    },
+    {
+      "name": "coolify",
+      "description": "Interact with a self-hosted Coolify instance via its REST API — manage applications, databases, deployments, servers, services, and projects.",
+      "source": "./plugins/coolify",
+      "category": "infrastructure"
     }
   ]
 }
