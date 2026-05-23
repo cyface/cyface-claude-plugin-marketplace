@@ -1,0 +1,11 @@
+{
+  "name": "ui-design-principles",
+  "version": "1.0.0",
+  "description": "Expert UI/UX design guidance based on Universal Principles of Design — visual hierarchy, interaction patterns, cognitive load, accessibility, and layout. Includes a proactive design reviewer.",
+  "author": {
+    "name": "Tim White",
+    "email": "tim@cyface.com"
+  },
+  "homepage": "https://github.com/cyface/ui-design-principles-claude-plugin",
+  "keywords": ["ui", "ux", "design", "accessibility", "usability", "layout"]
+}

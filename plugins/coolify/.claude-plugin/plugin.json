@@ -1,0 +1,11 @@
+{
+  "name": "coolify",
+  "version": "1.0.1",
+  "description": "Interact with a self-hosted Coolify instance via its REST API — manage applications, databases, deployments, servers, services, and projects.",
+  "author": {
+    "name": "Tim White",
+    "email": "tim@cyface.com"
+  },
+  "homepage": "https://github.com/cyface/coolify-claude-plugin",
+  "keywords": ["coolify", "deployment", "infrastructure", "paas", "devops"]
+}
