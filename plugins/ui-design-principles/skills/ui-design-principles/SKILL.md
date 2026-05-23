@@ -1,5 +1,5 @@
 ---
-name: UI Design Principles
+name: ui-design-principles
 description: >-
   This skill should be used when the user asks about "UI design", "UX design",
   "design principles", "usability", "visual hierarchy", "layout principles",

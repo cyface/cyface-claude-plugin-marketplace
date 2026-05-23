@@ -1,12 +1,11 @@
 ---
 name: coolify
-description: Interact with the Coolify API to manage applications, databases, deployments, servers, services, and projects on a self-hosted Coolify instance. Use when the user asks about Coolify, deployments, server status, app logs, or infrastructure management.
-argument-hint: [action] [resource] [options...]
+description: This skill should be used when the user asks about "Coolify", "deploy app", "restart app", "app logs", "deployment status", "list servers", "list databases", "environment variables", or any other management of applications, databases, deployments, servers, services, or projects on a self-hosted Coolify instance via its REST API.
 ---
 
 # Coolify API Skill
 
-You are a Coolify infrastructure assistant. You interact with a self-hosted Coolify instance via its REST API.
+Manage a self-hosted Coolify instance via its REST API. Use this skill to inspect and operate on applications, databases, deployments, servers, services, projects, teams, and private keys.
 
 ## Configuration
 
@@ -14,21 +13,19 @@ Read the Coolify connection details from the project `.env` file:
 - `COOLIFY_URL` — base URL of the Coolify instance (no trailing slash)
 - `COOLIFY_API_TOKEN` — Bearer token for authentication
 
-If these are not set, ask the user to provide them.
+If either value is missing, ask the user to provide it before making any API calls.
 
 ## How to Make API Calls
 
-Use the wrapper script via the Bash tool. The script path is relative to the skill's base directory:
+Use the wrapper script via the Bash tool. Always reference it via the `${CLAUDE_PLUGIN_ROOT}` environment variable so the path resolves correctly regardless of where the plugin is installed:
 
 ```bash
 # GET request
-${SKILL_DIR}/coolify.sh /endpoint
+${CLAUDE_PLUGIN_ROOT}/skills/coolify/coolify.sh /endpoint
 
 # POST/PATCH/DELETE - pass extra curl args after the endpoint
-${SKILL_DIR}/coolify.sh /endpoint -X POST -d '{"key": "value"}'
+${CLAUDE_PLUGIN_ROOT}/skills/coolify/coolify.sh /endpoint -X POST -d '{"key": "value"}'
 ```
-
-Where `${SKILL_DIR}` is the "Base directory for this skill" shown when the skill is invoked. Use that exact path.
 
 The script sources `.env` from the current working directory automatically.
 
@@ -36,9 +33,9 @@ Always pipe JSON responses through `jq` for readability. If `jq` is not availabl
 
 **IMPORTANT:** Always use the `coolify.sh` wrapper script — never use raw `curl` with `source .env &&` chains, as the Claude Code permission system blocks compound shell commands with `&&` or `|`.
 
-**PERMISSION SETUP:** The user needs to add this to their project's `.claude/settings.local.json` permissions allow list (using the actual resolved path):
-```
-"Bash(<resolved-skill-dir>/coolify.sh *)"
+**PERMISSION SETUP:** To avoid permission prompts on every call, add this to the project's `.claude/settings.local.json` permissions allow list:
+```json
+"Bash(${CLAUDE_PLUGIN_ROOT}/skills/coolify/coolify.sh *)"
 ```
 
 ## Available API Endpoints
@@ -130,26 +127,27 @@ Always pipe JSON responses through `jq` for readability. If `jq` is not availabl
 
 ## Behavior Guidelines
 
-1. **Start by listing** — when the user asks about a resource type without specifying a UUID, list them first so they can pick one.
+1. **List first to resolve names to UUIDs.** Users refer to apps and services by name, not UUID. When a request targets a specific resource without a UUID, list the resource type first and match the name before operating on it.
 
-2. **Confirm destructive actions** — always ask for confirmation before DELETE, stop, or restart operations.
+2. **Confirm destructive actions.** Ask for explicit confirmation before any DELETE, stop, or restart operation.
 
-3. **Format output clearly** — present API responses as readable tables or summaries, not raw JSON dumps. Extract the most useful fields (name, status, UUID, URLs).
+3. **Format output clearly.** Present API responses as readable tables or summaries — extract useful fields (name, status, UUID, URLs) rather than dumping raw JSON.
 
-4. **Common workflows:**
-   - "Show me my apps" → `coolify.sh /applications`, display as table with name, status, UUID
-   - "Deploy hexateer" → Find the app UUID first, then `coolify.sh /applications/{uuid}/restart`
-   - "Check deployment status" → `coolify.sh /deployments`, show recent with status
-   - "Show logs for X" → Find UUID, then `coolify.sh /applications/{uuid}/logs`
-   - "What servers do I have?" → `coolify.sh /servers`, show name, IP, status
-   - "App environment variables" → `coolify.sh /applications/{uuid}/envs`, display as key=value list (mask secrets)
+4. **Mask sensitive values.** When displaying environment variables, mask values that look like passwords, tokens, or secrets (show the first 4 characters followed by `****`).
 
-5. **Mask sensitive values** — when displaying environment variables, mask values that look like passwords, tokens, or secrets (show first 4 chars + `****`).
-
-6. **Error handling** — if an API call fails, explain the error clearly. Common issues:
+5. **Explain API errors.** When a call fails, surface the status code and likely cause:
    - 401: Token expired or invalid
    - 404: Resource UUID not found
    - 422: Validation error in request body
    - 500: Coolify server error
 
-7. **UUID resolution** — users will refer to apps/services by name, not UUID. Always list first to resolve the name to a UUID before operating on it.
+## Common Workflows
+
+| User says | Action |
+|-----------|--------|
+| "Show me my apps" | `coolify.sh /applications` → table of name, status, UUID |
+| "Deploy hexateer" | Resolve UUID, then `coolify.sh /applications/{uuid}/restart` |
+| "Check deployment status" | `coolify.sh /deployments` → recent deployments with status |
+| "Show logs for X" | Resolve UUID, then `coolify.sh /applications/{uuid}/logs` |
+| "What servers do I have?" | `coolify.sh /servers` → table of name, IP, status |
+| "App environment variables" | Resolve UUID, then `coolify.sh /applications/{uuid}/envs` → key=value list with secrets masked |

@@ -1,0 +1,11 @@
+{
+  "name": "foundryvtt-dev",
+  "version": "1.0.0",
+  "description": "Expert guidance for FoundryVTT v13 system and module development — ApplicationV2 migration, sheets, forms, actions, tabs, drag-drop, hooks, data model, testing, and i18n. Includes a proactive code reviewer for deprecated patterns and common mistakes. Not affiliated with Foundry Gaming LLC.",
+  "author": {
+    "name": "Tim White",
+    "email": "tim@cyface.com"
+  },
+  "homepage": "https://github.com/cyface/foundryvtt-dev-claude-plugin",
+  "keywords": ["foundryvtt", "foundry", "vtt", "applicationv2", "game-system", "tabletop", "rpg"]
+}

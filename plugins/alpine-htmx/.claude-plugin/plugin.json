@@ -1,0 +1,11 @@
+{
+  "name": "alpine-htmx",
+  "version": "1.0.0",
+  "description": "Expert guidance for Alpine.js v3 and HTMX development — directives, attributes, patterns, and combined usage. Includes a proactive code reviewer for anti-patterns, accessibility, and security.",
+  "author": {
+    "name": "Tim White",
+    "email": "tim@cyface.com"
+  },
+  "homepage": "https://github.com/cyface/alpine-htmx-claude-plugin",
+  "keywords": ["alpine.js", "htmx", "hypermedia", "frontend", "accessibility", "ui"]
+}

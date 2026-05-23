@@ -7,5 +7,7 @@
     "email": "tim@cyface.com"
   },
   "homepage": "https://github.com/cyface/coolify-claude-plugin",
+  "repository": "https://github.com/cyface/coolify-claude-plugin",
+  "license": "MIT",
   "keywords": ["coolify", "deployment", "infrastructure", "paas", "devops"]
 }
