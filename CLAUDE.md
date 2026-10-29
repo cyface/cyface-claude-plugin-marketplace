@@ -9,17 +9,15 @@ A local Claude Code plugin marketplace maintained by Cyface Design. It serves as
 ## Repository Structure
 
 - `.claude-plugin/marketplace.json` — The marketplace registry. Lists all available plugins with name, description, source path, and category.
-- `plugins/` — Contains plugin directories. **Each plugin is its own independent git repo** and is gitignored from this marketplace repo (`plugins/*/` in `.gitignore`). The marketplace only tracks the manifest, not plugin contents.
+- `plugins/` — Contains plugin directories. Plugin contents are committed directly in this repo (inlined), so the marketplace can be installed straight from GitHub with `/plugin marketplace add cyface/cyface-claude-plugin-marketplace`. Do not create nested git repos inside `plugins/`.
+
 ## Adding a New Plugin
 
 1. Create the plugin directory under `plugins/<plugin-name>/`
 2. Ensure it has a `.claude-plugin/plugin.json` manifest with `name`, `version`, `description`, `author`, and `keywords`
 3. Add an entry to `.claude-plugin/marketplace.json` in the `plugins` array with `name`, `description`, `source` (relative path like `./plugins/<name>`), and `category`
 4. Update the plugins table in `README.md`
-5. Initialize a git repo in the plugin directory and push to GitHub:
-   - `cd plugins/<plugin-name> && git init && git add -A && git commit -m "Initial plugin setup"`
-   - Create a repo at `https://github.com/cyface/<plugin-name>-claude-plugin`
-   - `git remote add origin git@github.com:cyface/<plugin-name>-claude-plugin.git && git push -u origin main`
+5. Commit the plugin directory along with the manifest and README changes in this repo, then push (via a branch and PR to `main`)
 
 ## Plugin Manifest Format
 
