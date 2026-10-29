@@ -8,7 +8,7 @@
   "plugins": [
     {
       "name": "alpine-htmx",
-      "description": "Expert guidance for Alpine.js v3 and HTMX development — directives, attributes, patterns, and combined usage. Includes a proactive code reviewer for anti-patterns, accessibility, and security.",
+      "description": "Expert guidance for Alpine.js v3 and htmx (2.x and 4), an htmx 2-to-4 upgrade skill, an htmx debugging skill, and a proactive code reviewer for anti-patterns, accessibility, and security.",
       "source": "./plugins/alpine-htmx",
       "category": "development"
     },
