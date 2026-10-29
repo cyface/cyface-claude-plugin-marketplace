@@ -1,380 +1,418 @@
-# Alpine.js — Common Component Patterns
+# Alpine.js — Component Patterns
 
-## Modal Dialog (Accessible)
+Copy-and-adapt patterns. Each one is accessible by default and uses only core Alpine unless a plugin is named. Tailwind-style class names are illustrative.
 
-```html
-<div x-data="{ open: false }">
-    <button @click="open = true" x-ref="trigger">Open Modal</button>
+## Contents
 
-    <div x-show="open"
-         x-cloak
-         role="dialog"
-         aria-labelledby="modal-title"
-         aria-modal="true"
-         @keydown.escape.window="open = false; $refs.trigger.focus()"
-         @click="open = false; $refs.trigger.focus()"
-         x-transition:enter="transition ease-out duration-300"
-         x-transition:enter-start="opacity-0"
-         x-transition:enter-end="opacity-100"
-         x-transition:leave="transition ease-in duration-200"
-         x-transition:leave-start="opacity-100"
-         x-transition:leave-end="opacity-0"
-         class="modal-overlay">
-
-        <div class="modal-backdrop" aria-hidden="true"></div>
-
-        <div class="modal-content"
-             x-trap.inert.noscroll="open"
-             @click.stop
-             x-transition:enter="transition ease-out duration-300"
-             x-transition:enter-start="opacity-0 scale-90"
-             x-transition:enter-end="opacity-100 scale-100"
-             x-transition:leave="transition ease-in duration-200"
-             x-transition:leave-start="opacity-100 scale-100"
-             x-transition:leave-end="opacity-0 scale-90">
-            <h2 id="modal-title">Modal Title</h2>
-            <p>Modal body content.</p>
-            <button @click="open = false; $refs.trigger.focus()">Close</button>
-        </div>
-    </div>
-</div>
-```
-
-**Key points:**
-- `x-trap.inert.noscroll` requires **@alpinejs/focus** plugin
-- `@click.stop` on content prevents closing when clicking inside
-- `$refs.trigger.focus()` returns focus to trigger button on close
-- `aria-labelledby` points to the modal title
-- Backdrop with `aria-hidden="true"` for screen readers
+- [Modal dialog](#modal-dialog)
+- [Dropdown / popover](#dropdown--popover)
+- [Tabs](#tabs)
+- [Accordion](#accordion)
+- [Toast notifications](#toast-notifications)
+- [Search / filter list](#search--filter-list)
+- [Toggle switch](#toggle-switch)
+- [Inline confirm](#inline-confirm)
+- [Lazy-loaded section](#lazy-loaded-section)
+- [Dark mode with persistence](#dark-mode-with-persistence)
+- [Character counter](#character-counter)
+- [Multi-step wizard](#multi-step-wizard)
+- [Clipboard copy](#clipboard-copy)
+- [Custom input with x-modelable](#custom-input-with-x-modelable)
+- [Sortable list](#sortable-list)
+- [Reusable component with Alpine.data](#reusable-component-with-alpinedata)
 
 ---
 
-## Dropdown Menu
+## Modal dialog
+
+Requires `@alpinejs/focus`. Teleported to `<body>` so it escapes `overflow`/`z-index` traps.
 
 ```html
-<div x-data="{ open: false }" class="relative">
-    <button @click="open = !open"
-            :aria-expanded="open"
-            aria-haspopup="true">
-        Options
-    </button>
+<div x-data="{ open: false }" x-id="['modal-title']">
+  <button type="button" @click="open = true" x-ref="trigger">Delete account</button>
 
-    <div x-show="open"
-         x-cloak
-         @click.outside="open = false"
-         @keydown.escape.window="open = false"
-         x-transition
-         role="menu"
-         class="dropdown-menu">
-        <a href="#" role="menuitem" @click="open = false">Edit</a>
-        <a href="#" role="menuitem" @click="open = false">Delete</a>
+  <template x-teleport="body">
+    <div x-show="open" x-cloak
+         class="fixed inset-0 z-50 flex items-center justify-center"
+         @keydown.escape.prevent.stop="open = false; $refs.trigger.focus()">
+
+      <!-- Backdrop -->
+      <div class="fixed inset-0 bg-black/50" x-show="open" x-transition.opacity aria-hidden="true"></div>
+
+      <!-- Panel -->
+      <div x-show="open" x-transition
+           x-trap.inert.noscroll="open"
+           @click.outside="open = false; $refs.trigger.focus()"
+           role="dialog" aria-modal="true" :aria-labelledby="$id('modal-title')"
+           class="relative rounded bg-white p-6 shadow">
+        <h2 :id="$id('modal-title')">Delete your account?</h2>
+        <p>This cannot be undone.</p>
+        <div class="mt-4 flex gap-2">
+          <button type="button" @click="open = false; $refs.trigger.focus()">Cancel</button>
+          <button type="button" class="btn-danger" @click="deleteAccount(); open = false">Delete</button>
+        </div>
+      </div>
     </div>
+  </template>
 </div>
 ```
+
+Why each piece is there:
+- `x-trap.inert.noscroll` traps Tab, marks the rest of the page `aria-hidden`, and locks scroll; focus returns to the trigger automatically on release, and the explicit `$refs.trigger.focus()` covers cases where it does not.
+- `@keydown.escape.prevent.stop` on the wrapper, not `.window`, so nested components do not all react.
+- `@click.outside` on the panel closes on backdrop clicks without needing `@click.stop` inside.
+- `x-id` + `$id` keep `aria-labelledby` unique when the component repeats.
+- Buttons are `type="button"` so a surrounding form is never submitted by accident.
+
+---
+
+## Dropdown / popover
+
+Follows the structure of the official Alpine dropdown component (which names its id scope `dropdown-button`). Add `@alpinejs/anchor` if the panel must escape a clipping container.
+
+```html
+<div x-data="{
+       open: false,
+       toggle() { this.open ? this.close() : (this.open = true) },
+       close(focusAfter) { if (!this.open) return; this.open = false; focusAfter && focusAfter.focus() }
+     }"
+     x-id="['dropdown-panel']"
+     @keydown.escape.prevent.stop="close($refs.button)"
+     @focusin.window="!$refs.panel.contains($event.target) && close()"
+     class="relative">
+
+  <button type="button" x-ref="button" @click="toggle()"
+          :aria-expanded="open" :aria-controls="$id('dropdown-panel')">
+    Options
+  </button>
+
+  <div x-ref="panel" x-show="open" x-cloak x-transition.origin.top.left
+       :id="$id('dropdown-panel')"
+       @click.outside="close($refs.button)"
+       class="absolute left-0 mt-2 w-48 rounded bg-white shadow">
+    <a href="/settings" @click="close()">Settings</a>
+    <button type="button" @click="archive(); close($refs.button)">Archive</button>
+  </div>
+</div>
+```
+
+Add `role="menu"` / `role="menuitem"` plus arrow-key handling (`$focus.wrap().next()` from the focus plugin) only when it is a true command menu; for a list of links, plain markup is more accessible.
 
 ---
 
 ## Tabs
 
 ```html
-<div x-data="{ activeTab: 'general' }">
-    <div role="tablist">
-        <button role="tab"
-                :aria-selected="activeTab === 'general'"
-                :class="{ 'active': activeTab === 'general' }"
-                @click="activeTab = 'general'">
-            General
-        </button>
-        <button role="tab"
-                :aria-selected="activeTab === 'advanced'"
-                :class="{ 'active': activeTab === 'advanced' }"
-                @click="activeTab = 'advanced'">
-            Advanced
-        </button>
-    </div>
+<div x-data="{ tab: 'general' }" x-id="['tab']">
+  <div role="tablist" @keydown.right.prevent="$focus.wrap().next()" @keydown.left.prevent="$focus.wrap().previous()">
+    <template x-for="t in ['general', 'advanced']" :key="t">
+      <button type="button" role="tab"
+              :id="$id('tab', t)" :aria-controls="$id('tab', t + '-panel')"
+              :aria-selected="tab === t" :tabindex="tab === t ? 0 : -1"
+              :class="{ 'active': tab === t }"
+              @click="tab = t" @focus="tab = t"
+              x-text="t"></button>
+    </template>
+  </div>
 
-    <div x-show="activeTab === 'general'" role="tabpanel">
-        General settings content
-    </div>
-    <div x-show="activeTab === 'advanced'" role="tabpanel">
-        Advanced settings content
-    </div>
+  <div role="tabpanel" :id="$id('tab', 'general-panel')" :aria-labelledby="$id('tab', 'general')" x-show="tab === 'general'">General settings</div>
+  <div role="tabpanel" :id="$id('tab', 'advanced-panel')" :aria-labelledby="$id('tab', 'advanced')" x-show="tab === 'advanced'">Advanced settings</div>
 </div>
 ```
 
+The arrow-key handlers use `$focus` from `@alpinejs/focus`; drop them for a simpler version.
+
 ---
 
-## Accordion / Collapsible Sections
+## Accordion
+
+Requires `@alpinejs/collapse`.
 
 ```html
-<!-- Requires @alpinejs/collapse plugin -->
-<div x-data="{ openSection: null }">
-    <div>
-        <button @click="openSection = openSection === 'faq1' ? null : 'faq1'"
-                :aria-expanded="openSection === 'faq1'">
-            Question 1
-        </button>
-        <div x-show="openSection === 'faq1'" x-collapse>
-            Answer 1 content.
-        </div>
+<div x-data="{ active: null }">
+  <template x-for="faq in faqs" :key="faq.id">
+    <div x-id="['faq']">
+      <h3>
+        <button type="button" @click="active = active === faq.id ? null : faq.id"
+                :aria-expanded="active === faq.id" :aria-controls="$id('faq')"
+                x-text="faq.question"></button>
+      </h3>
+      <div :id="$id('faq')" x-show="active === faq.id" x-collapse x-text="faq.answer"></div>
     </div>
-    <div>
-        <button @click="openSection = openSection === 'faq2' ? null : 'faq2'"
-                :aria-expanded="openSection === 'faq2'">
-            Question 2
-        </button>
-        <div x-show="openSection === 'faq2'" x-collapse>
-            Answer 2 content.
-        </div>
-    </div>
+  </template>
 </div>
 ```
 
+Set `active` to an array and toggle membership if several panels may be open at once.
+
 ---
 
-## Toast / Notification System
+## Toast notifications
 
 ```html
 <script>
 document.addEventListener('alpine:init', () => {
-    Alpine.store('toasts', {
-        items: [],
-        add(message, type = 'info') {
-            const id = Date.now()
-            this.items.push({ id, message, type })
-            setTimeout(() => this.remove(id), 5000)
-        },
-        remove(id) {
-            this.items = this.items.filter(t => t.id !== id)
-        }
-    })
+  Alpine.store('toasts', {
+    items: [],
+    add(message, type = 'info', timeout = 5000) {
+      const id = crypto.randomUUID()
+      this.items.push({ id, message, type })
+      if (timeout) setTimeout(() => this.remove(id), timeout)
+    },
+    remove(id) { this.items = this.items.filter(t => t.id !== id) },
+  })
 })
 </script>
 
-<!-- Toast container (place once in layout) -->
-<div x-data class="toast-container" aria-live="polite">
-    <template x-for="toast in $store.toasts.items" :key="toast.id">
-        <div :class="'toast toast-' + toast.type"
-             x-transition
-             role="alert">
-            <span x-text="toast.message"></span>
-            <button @click="$store.toasts.remove(toast.id)"
-                    aria-label="Dismiss">&times;</button>
-        </div>
-    </template>
+<!-- Once per layout. aria-live must exist before messages arrive. -->
+<div x-data aria-live="polite" class="fixed bottom-4 right-4 space-y-2">
+  <template x-for="toast in $store.toasts.items" :key="toast.id">
+    <div role="status" x-transition :class="'toast toast-' + toast.type">
+      <span x-text="toast.message"></span>
+      <button type="button" @click="$store.toasts.remove(toast.id)" aria-label="Dismiss">&times;</button>
+    </div>
+  </template>
 </div>
 
-<!-- Trigger from anywhere -->
-<button x-data @click="$store.toasts.add('Saved!', 'success')">Save</button>
+<!-- From anywhere, including htmx event handlers -->
+<button type="button" x-data @click="$store.toasts.add('Saved', 'success')">Save</button>
 ```
+
+Use `role="alert"` (assertive) only for errors that need immediate attention.
 
 ---
 
-## Search / Filter List
+## Search / filter list
 
 ```html
 <div x-data="{
-    search: '',
-    items: ['Apple', 'Banana', 'Cherry', 'Date', 'Fig', 'Grape'],
-    get filtered() {
-        if (!this.search) return this.items
-        const q = this.search.toLowerCase()
-        return this.items.filter(i => i.toLowerCase().includes(q))
-    }
+  q: '',
+  items: ['Apple', 'Banana', 'Cherry', 'Date'],
+  get filtered() {
+    const q = this.q.trim().toLowerCase()
+    return q ? this.items.filter(i => i.toLowerCase().includes(q)) : this.items
+  }
 }">
-    <input type="search" x-model.debounce.300ms="search" placeholder="Search...">
-
-    <ul>
-        <template x-for="item in filtered" :key="item">
-            <li x-text="item"></li>
-        </template>
-    </ul>
-
-    <p x-show="filtered.length === 0">No results found.</p>
+  <label for="filter">Filter</label>
+  <input id="filter" type="search" x-model.debounce.200ms="q" autocomplete="off">
+  <p aria-live="polite" x-text="filtered.length + ' results'"></p>
+  <ul>
+    <template x-for="item in filtered" :key="item">
+      <li x-text="item"></li>
+    </template>
+  </ul>
 </div>
 ```
 
+For server-side data, use htmx `hx-get` with `hx-trigger="input changed delay:300ms"` instead and keep Alpine out of the list (see the htmx skill).
+
 ---
 
-## Toggle / Switch Button
+## Toggle switch
 
 ```html
-<button x-data="{ on: false }"
-        @click="on = !on"
-        :class="{ 'bg-green': on, 'bg-gray': !on }"
-        :aria-pressed="on"
-        role="switch"
-        type="button">
-    <span :class="on ? 'translate-x-5' : 'translate-x-0'"
-          class="toggle-handle"></span>
+<button type="button" x-data="{ on: false }" role="switch" :aria-checked="on"
+        @click="on = !on" :class="on ? 'bg-green-500' : 'bg-gray-300'">
+  <span class="sr-only">Enable notifications</span>
+  <span class="knob" :class="on ? 'translate-x-5' : 'translate-x-0'" aria-hidden="true"></span>
 </button>
 ```
 
+Use `role="switch"` + `aria-checked` for on/off, or `aria-pressed` for a pressed/unpressed toggle button. Not both.
+
 ---
 
-## Confirm Before Action
+## Inline confirm
 
 ```html
-<div x-data="{ confirming: false }">
-    <button x-show="!confirming" @click="confirming = true" class="btn-danger">
-        Delete
-    </button>
-    <div x-show="confirming" x-transition class="confirm-group">
-        <span>Are you sure?</span>
-        <button @click="deleteItem(); confirming = false" class="btn-danger">Yes, Delete</button>
-        <button @click="confirming = false" class="btn-secondary">Cancel</button>
-    </div>
+<div x-data="{ confirming: false }" @keydown.escape.window="confirming = false">
+  <button type="button" x-show="!confirming" @click="confirming = true; $nextTick(() => $refs.yes.focus())">Delete</button>
+  <span x-show="confirming" x-cloak role="group" aria-label="Confirm delete">
+    Are you sure?
+    <button type="button" x-ref="yes" @click="remove(); confirming = false">Yes, delete</button>
+    <button type="button" @click="confirming = false">Cancel</button>
+  </span>
 </div>
+```
+
+With htmx, `hx-confirm` on the delete button is the simpler option; use this when you need a styled confirm.
+
+---
+
+## Lazy-loaded section
+
+Requires `@alpinejs/intersect`. For HTML from the server, prefer htmx `hx-trigger="intersect once"`; this is the JSON/Alpine version.
+
+```html
+<section x-data="{ loaded: false, items: [] }"
+         x-intersect.once.margin.200px="items = await (await fetch('/api/items')).json(); loaded = true">
+  <template x-if="!loaded"><p class="skeleton">Loading…</p></template>
+  <template x-for="item in items" :key="item.id">
+    <article x-text="item.title"></article>
+  </template>
+</section>
 ```
 
 ---
 
-## Lazy-Loaded Content with Intersection Observer
+## Dark mode with persistence
+
+Requires `@alpinejs/persist`.
 
 ```html
-<!-- Requires @alpinejs/intersect plugin -->
-<div x-data="{ loaded: false, content: '' }"
-     x-intersect:enter.once="loaded = true; content = await (await fetch('/api/content')).json()">
-    <template x-if="!loaded">
-        <div class="skeleton-loader">Loading...</div>
-    </template>
-    <template x-if="loaded">
-        <div x-html="content"></div>
-    </template>
-</div>
-```
-
----
-
-## Dark Mode Toggle with Persistence
-
-```html
-<!-- Requires @alpinejs/persist plugin -->
 <script>
 document.addEventListener('alpine:init', () => {
-    Alpine.store('darkMode', {
-        on: Alpine.$persist(false).as('darkMode'),
-        toggle() { this.on = !this.on }
-    })
+  Alpine.store('theme', {
+    dark: Alpine.$persist(window.matchMedia('(prefers-color-scheme: dark)').matches).as('theme-dark'),
+    toggle() { this.dark = !this.dark },
+  })
 })
 </script>
 
-<div :class="{ 'dark': $store.darkMode.on }">
-    <button x-data @click="$store.darkMode.toggle()"
-            :aria-pressed="$store.darkMode.on">
-        <span x-text="$store.darkMode.on ? 'Light Mode' : 'Dark Mode'"></span>
-    </button>
-</div>
+<html x-data :class="{ 'dark': $store.theme.dark }">
+  <button type="button" @click="$store.theme.toggle()" :aria-pressed="$store.theme.dark">
+    <span x-text="$store.theme.dark ? 'Light mode' : 'Dark mode'"></span>
+  </button>
+</html>
 ```
+
+To avoid a flash, also apply the class from an inline blocking script that reads `localStorage` before Alpine loads.
 
 ---
 
-## Character Counter for Textarea
+## Character counter
 
 ```html
-<div x-data="{ text: '', maxLength: 280 }">
-    <textarea x-model="text"
-              :maxlength="maxLength"
-              placeholder="What's happening?"></textarea>
-    <div :class="{ 'text-red': text.length > maxLength * 0.9 }">
-        <span x-text="text.length"></span>/<span x-text="maxLength"></span>
-    </div>
+<div x-data="{ text: '', max: 280 }">
+  <label for="post">Post</label>
+  <textarea id="post" x-model="text" :maxlength="max" :aria-describedby="'post-count'"></textarea>
+  <p id="post-count" aria-live="polite" :class="{ 'text-red-600': text.length > max * 0.9 }">
+    <span x-text="text.length"></span>/<span x-text="max"></span>
+  </p>
 </div>
 ```
 
 ---
 
-## Multi-Step Form / Wizard
+## Multi-step wizard
 
 ```html
-<div x-data="{
-    step: 1,
-    totalSteps: 3,
-    formData: { name: '', email: '', plan: '' },
-    get canProceed() {
-        if (this.step === 1) return this.formData.name.length > 0
-        if (this.step === 2) return this.formData.email.includes('@')
-        return true
-    }
-}">
-    <!-- Step indicators -->
-    <div class="steps">
-        <template x-for="i in totalSteps" :key="i">
-            <span :class="{ 'active': step === i, 'done': step > i }" x-text="i"></span>
-        </template>
-    </div>
+<form x-data="{
+        step: 1, total: 3,
+        form: { name: '', email: '', plan: 'free' },
+        get canProceed() {
+          if (this.step === 1) return this.form.name.trim().length > 0
+          if (this.step === 2) return this.form.email.includes('@')
+          return true
+        },
+        next() { if (this.canProceed && this.step < this.total) this.step++ },
+        back() { if (this.step > 1) this.step-- },
+      }"
+      @submit.prevent="submit(form)">
 
-    <!-- Step 1 -->
-    <div x-show="step === 1">
-        <label>Name</label>
-        <input x-model="formData.name" type="text">
-    </div>
+  <ol class="steps" aria-label="Progress">
+    <template x-for="i in total" :key="i">
+      <li :aria-current="step === i ? 'step' : null" :class="{ done: step > i }" x-text="i"></li>
+    </template>
+  </ol>
 
-    <!-- Step 2 -->
-    <div x-show="step === 2">
-        <label>Email</label>
-        <input x-model="formData.email" type="email">
-    </div>
+  <fieldset x-show="step === 1"><legend>Name</legend><input x-model="form.name" required></fieldset>
+  <fieldset x-show="step === 2"><legend>Email</legend><input type="email" x-model="form.email" required></fieldset>
+  <fieldset x-show="step === 3"><legend>Plan</legend>
+    <select x-model="form.plan"><option value="free">Free</option><option value="pro">Pro</option></select>
+  </fieldset>
 
-    <!-- Step 3 -->
-    <div x-show="step === 3">
-        <label>Plan</label>
-        <select x-model="formData.plan">
-            <option value="free">Free</option>
-            <option value="pro">Pro</option>
-        </select>
-    </div>
-
-    <!-- Navigation -->
-    <button @click="step--" x-show="step > 1">Back</button>
-    <button @click="step++" x-show="step < totalSteps" :disabled="!canProceed">Next</button>
-    <button x-show="step === totalSteps" @click="submitForm()">Submit</button>
-</div>
+  <button type="button" @click="back()" x-show="step > 1">Back</button>
+  <button type="button" @click="next()" x-show="step < total" :disabled="!canProceed">Next</button>
+  <button type="submit" x-show="step === total">Submit</button>
+</form>
 ```
+
+Hidden steps still submit their fields because `x-show` keeps them in the DOM. If the final submit should go through htmx, replace `@submit.prevent` with `hx-post`.
 
 ---
 
-## Clipboard Copy Button
+## Clipboard copy
 
 ```html
 <div x-data="{ copied: false }">
-    <code x-ref="code">npm install alpinejs</code>
-    <button @click="
-        navigator.clipboard.writeText($refs.code.textContent);
-        copied = true;
-        setTimeout(() => copied = false, 2000)
-    ">
-        <span x-text="copied ? 'Copied!' : 'Copy'"></span>
-    </button>
+  <code x-ref="code">npm install alpinejs</code>
+  <button type="button"
+          @click="await navigator.clipboard.writeText($refs.code.textContent); copied = true; setTimeout(() => copied = false, 2000)"
+          :aria-label="copied ? 'Copied' : 'Copy to clipboard'">
+    <span x-text="copied ? 'Copied!' : 'Copy'" aria-live="polite"></span>
+  </button>
 </div>
 ```
 
 ---
 
-## Reusable Component with Alpine.data()
+## Custom input with x-modelable
+
+A reusable quantity stepper whose value binds to the parent's `x-model`.
 
 ```html
 <script>
 document.addEventListener('alpine:init', () => {
-    Alpine.data('counter', (initialCount = 0) => ({
-        count: initialCount,
-        increment() { this.count++ },
-        decrement() { this.count-- },
-        reset() { this.count = initialCount }
-    }))
+  Alpine.data('stepper', (min = 0, max = 99) => ({
+    value: min,
+    dec() { if (this.value > min) this.value-- },
+    inc() { if (this.value < max) this.value++ },
+  }))
 })
 </script>
 
-<!-- Reuse with different initial values -->
-<div x-data="counter(0)">
-    <button @click="decrement">-</button>
-    <span x-text="count"></span>
-    <button @click="increment">+</button>
+<div x-data="{ qty: 1 }">
+  <div x-data="stepper(1, 10)" x-modelable="value" x-model="qty" role="group" aria-label="Quantity">
+    <button type="button" @click="dec()" aria-label="Decrease">−</button>
+    <output x-text="value"></output>
+    <button type="button" @click="inc()" aria-label="Increase">+</button>
+  </div>
+  <input type="hidden" name="qty" :value="qty">   <!-- so a plain or htmx form submits it -->
 </div>
+```
 
-<div x-data="counter(100)">
-    <button @click="decrement">-</button>
-    <span x-text="count"></span>
-    <button @click="increment">+</button>
+---
+
+## Sortable list
+
+Requires `@alpinejs/sort`.
+
+```html
+<ul x-data="{ todos: [...], reorder(id, position) { /* persist, e.g. htmx.ajax('POST', '/reorder', { values: { id, position } }) */ } }"
+    x-sort="reorder($item, $position)">
+  <template x-for="todo in todos" :key="todo.id">
+    <li x-sort:item="todo.id">
+      <span x-sort:handle aria-hidden="true">⋮⋮</span>
+      <span x-text="todo.title"></span>
+    </li>
+  </template>
+</ul>
+```
+
+Provide a keyboard alternative (move up/down buttons) for users who cannot drag.
+
+---
+
+## Reusable component with Alpine.data
+
+```html
+<script>
+document.addEventListener('alpine:init', () => {
+  Alpine.data('counter', (initial = 0) => ({
+    count: initial,
+    increment() { this.count++ },
+    decrement() { this.count-- },
+    reset() { this.count = initial },
+    init() { this.$watch('count', (v, old) => console.debug('count', old, '→', v)) },
+  }))
+})
+</script>
+
+<div x-data="counter()">
+  <button type="button" @click="decrement()" aria-label="Decrease">−</button>
+  <output x-text="count"></output>
+  <button type="button" @click="increment()" aria-label="Increase">+</button>
 </div>
+<div x-data="counter(100)">…</div>
 ```

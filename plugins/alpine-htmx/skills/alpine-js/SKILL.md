@@ -1,168 +1,214 @@
 ---
 name: alpine-js
 description: >-
-  This skill should be used when the user asks to "create an Alpine component",
-  "add Alpine.js", "use x-data", "add reactivity", "create a dropdown",
-  "build a modal", "use Alpine store", "add x-show", "toggle visibility",
-  "bind attributes with Alpine", "add focus trap", "use Alpine plugins",
-  or mentions Alpine.js directives (x-data, x-bind, x-on, x-model, x-show,
-  x-for, x-if, x-transition, x-cloak, x-ref, x-effect, x-teleport).
-  Also applies when working with Alpine.js alongside HTMX.
-version: 1.0.0
+  Alpine.js v3 (3.17.x) guidance for reactive UI written directly in HTML. Use this
+  skill BEFORE writing or editing any Alpine markup, even a small snippet you could
+  write from memory: it carries version-specific rules (template-only directives,
+  :key, x-cloak CSS, x-trap focus handling, plugin load order, the rewritten CSP
+  build, htmx 2 vs 4 event names) that training data frequently gets wrong. Trigger
+  on x-data, x-show, x-model, x-for, @click, :class, Alpine.data, Alpine.store,
+  $dispatch, x-trap, x-collapse, x-anchor, and on requests for a dropdown, modal,
+  dialog, tabs, accordion, toggle, toast, wizard, client-side filter, or any
+  "sprinkle of interactivity" on a server-rendered page, including Django, Flask,
+  Rails, Laravel/Livewire or Phoenix templates that already use Alpine even when
+  the user does not name it. Also use when Alpine is combined with htmx.
 ---
 
 # Alpine.js v3 Development Guide
 
-Alpine.js is a lightweight reactive framework for composing behavior directly in HTML markup. It handles **UI state** — modals, dropdowns, toggles, tabs, form visibility, client-side validation feedback, and focus management.
+Alpine composes behavior directly in markup. It owns **client-side UI state**: open/closed, selected tab, form visibility, client-side validation feedback, focus, and small reactive widgets. When a page also uses htmx, htmx owns server communication and Alpine owns what happens around it (see "Alpine + htmx" below).
 
-## Core Concept: x-data Scopes
+Current stable line: **3.17.x** (no v4 exists). Everything below is v3.
 
-Every Alpine component starts with `x-data` on a parent element. All child elements can access the reactive state.
+## Installation
 
 ```html
-<div x-data="{ open: false, count: 0 }">
-  <button @click="open = !open">Toggle</button>
-  <div x-show="open">Content</div>
+<!-- Plugins first, then core. Pin a real version in production. -->
+<script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/focus@3.17.5/dist/cdn.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.17.5/dist/cdn.min.js"></script>
+<style>[x-cloak] { display: none !important; }</style>
+```
+
+- `defer` is required so Alpine runs after the DOM is parsed.
+- **Plugin scripts go before the core script**; with npm, register them between `import` and `Alpine.start()`:
+  ```js
+  import Alpine from 'alpinejs'
+  import focus from '@alpinejs/focus'
+  Alpine.plugin(focus)          // also accepts an array of plugins
+  window.Alpine = Alpine        // handy for devtools and console debugging
+  Alpine.start()                // call exactly once per page
+  ```
+- Under a strict Content-Security-Policy that forbids `unsafe-eval`, use the **CSP build** (`@alpinejs/csp`) instead of core. See "CSP build" below.
+
+## Core model
+
+Every component starts at an `x-data` element; descendants read and write that scope. Nested `x-data` scopes see their ancestors, and the closest definition wins.
+
+```html
+<div x-data="{ open: false, count: 0, get doubled() { return this.count * 2 } }">
+  <button type="button" @click="open = !open">Toggle</button>
+  <div x-show="open" x-cloak>Content</div>
 </div>
 ```
 
-**Key rules:**
-- `x-data` accepts a plain JavaScript object expression
-- Nested `x-data` scopes: child can access parent data
-- Data-less components: `<div x-data>` for simple interactions with no state
-- Extract reusable components with `Alpine.data('name', () => ({...}))`
-
-## Essential Directives
-
-### Rendering and Visibility
-- **`x-show`** — Toggle display via CSS (`display: none`). Element stays in DOM. Pair with `x-transition` for animations.
-- **`x-if`** — Conditionally add/remove element from DOM. Must wrap a single `<template>` element. Use when element should not exist at all (not just hidden).
-- **`x-for`** — Loop over arrays. Must wrap a `<template>` with a single root child. Always add `:key` for efficient re-renders.
-- **`x-text`** — Set element's `textContent`. Automatically escapes HTML (safe for user content).
-- **`x-html`** — Set element's `innerHTML`. **Security risk** — never use with user-provided content.
-
-### Data Binding and Events
-- **`x-bind` / `:`** — Dynamically set any HTML attribute. Special handling for `class` (object/array syntax) and `style` (object syntax).
-- **`x-on` / `@`** — Attach event listeners. Supports all DOM events plus custom events.
-- **`x-model`** — Two-way binding for form inputs. Works with text, textarea, checkbox, radio, select, range. Modifiers: `.lazy`, `.debounce.500ms`, `.number`, `.trim`.
-
-### Lifecycle and Side Effects
-- **`x-init`** — Run expression when component initializes. Use for fetching data, setting up listeners.
-- **`x-effect`** — Run expression reactively whenever dependencies change. Auto-tracks dependencies (like Vue's `watchEffect`).
-
-### Utility Directives
-- **`x-ref`** — Name an element for access via `$refs.name` in JavaScript.
-- **`x-cloak`** — Hide element until Alpine initializes. **Must add CSS**: `[x-cloak] { display: none !important; }`
-- **`x-teleport`** — Move element to another location in DOM (e.g., modals to `<body>`). Must be on a `<template>` element.
-- **`x-ignore`** — Skip Alpine initialization for this subtree.
-- **`x-id`** — Generate scoped unique IDs for accessibility patterns. Use with `$id('name')` magic to produce `name-1`, `name-2`, etc.
-
-## Event Modifiers
-
-Event modifiers chain after the event name with dots. Most common: `.prevent`, `.stop`, `.outside` (click outside), `.window` (listen on window), `.once`, `.debounce.500ms`, `.self`.
-
-**Keyboard modifiers:** `.enter`, `.escape`, `.tab`, `.space`, `.arrow-up`, `.arrow-down`, `.shift`, `.meta`, `.ctrl`, `.alt`. Combine: `@keyup.shift.enter="submit()"`
-
-Full modifier list with descriptions in **`references/alpine-directives.md`**.
-
-## Magic Properties
-
-| Property | Purpose |
-|----------|---------|
-| `$el` | Current DOM element |
-| `$refs` | Access named elements (`x-ref`) |
-| `$store` | Access global stores |
-| `$watch` | Watch a property for changes |
-| `$dispatch` | Dispatch a custom DOM event |
-| `$nextTick` | Execute after DOM update |
-| `$root` | Root element of component |
-| `$data` | Current scope's data object |
-| `$id` | Generate unique IDs |
-
-## Global State with Alpine.store
-
-Define stores in `alpine:init` event, access with `$store`:
+Prefer `Alpine.data()` for anything with more than a couple of properties, and register it in `alpine:init` (or before `Alpine.start()` in a bundle):
 
 ```html
 <script>
 document.addEventListener('alpine:init', () => {
-  Alpine.store('notifications', {
+  Alpine.data('dropdown', (initiallyOpen = false) => ({
+    open: initiallyOpen,
+    init() { /* runs before the element renders; this.$watch etc. are available */ },
+    destroy() { /* runs when the element is removed or an x-if goes false */ },
+    toggle() { this.open = !this.open },
+  }))
+})
+</script>
+<div x-data="dropdown(true)">…</div>
+```
+
+Lifecycle events: `alpine:init` (register data, stores, directives, magics, binds) and `alpine:initialized` (page is live). An `init()` method on the data object runs automatically and before any `x-init` on the same element.
+
+## Rules that prevent most Alpine bugs
+
+- **`x-for`, `x-if` and `x-teleport` must be on a `<template>` with exactly one root child.** Alpine warns when they are not on a `<template>`; `x-for` (3.15.11+) also warns about extra roots, while `x-if`/`x-teleport` silently use only the first.
+- **Add `:key` to `x-for`** when items can be added, removed or reordered. Use a stable id, never the index.
+- **`x-transition` only works with `x-show`**, never `x-if`.
+- **`x-cloak` needs the CSS rule** `[x-cloak] { display: none !important; }` somewhere on the page, or it does nothing.
+- **Never put user-provided content in `x-html`.** Use `x-text`, or sanitize on the server.
+- **Getters are not cached.** `get filtered()` re-runs on every read; keep them cheap or precompute in a method.
+- **Event names are lowercase.** `@click`, `@keydown.escape`. Custom events use kebab-case; use `.camel` or `.dot` only when a library dispatches `camelCase`/`dotted.names`.
+- **Buttons inside forms need `type="button"`** unless they are meant to submit.
+- **Effects track only synchronous reads.** Reads inside `setTimeout`, `await` or `.then()` are not tracked by `x-effect`/`Alpine.effect`.
+- **`x-modelable` clones via JSON.** Files, Dates, Maps, Sets and DOM nodes do not survive it; `$dispatch('input', value)` instead.
+
+## Directive cheat sheet
+
+| Directive | Use for | Notes |
+|-----------|---------|-------|
+| `x-data` | Declare a component scope | Object literal or `Alpine.data` name; `x-data` alone for stateless |
+| `x-init` | Run code when the element initializes | Works without `x-data`; use `$nextTick` for post-render work |
+| `x-show` | Toggle `display` | `.important` when a CSS rule fights it; keeps the element in the DOM |
+| `x-if` | Add/remove from the DOM | On `<template>`; no transitions; runs `destroy()` of inner components |
+| `x-for` | Loop | `(item, index) in items`, `(value, key) in obj`, `i in 10`; Sets supported |
+| `x-bind` / `:` | Attribute binding | Object syntax for `class`/`style`; bind `null`/`false` to remove; `x-bind="obj"` binds many |
+| `x-on` / `@` | Event listeners | Rich modifier set, see below |
+| `x-model` | Two-way form binding | `.lazy` `.change` `.blur` `.enter` `.number` `.boolean` `.trim` `.fill` `.debounce` `.throttle` |
+| `x-modelable` | Expose inner state to an outer `x-model` | For reusable inputs/components |
+| `x-text` / `x-html` | Set content | `x-text` is XSS-safe; `x-html` is not |
+| `x-effect` | Reactive side effect | Runs immediately and on every change of what it read |
+| `x-ref` / `$refs` | Name an element | Works across `x-teleport` |
+| `x-cloak` | Hide until Alpine starts | Requires the CSS rule above |
+| `x-teleport` | Move content elsewhere in the DOM | On `<template>`; selector target; keeps scope; listeners on the template receive forwarded events |
+| `x-ignore` | Skip a subtree | Use for third-party widgets that manage their own DOM |
+| `x-id` / `$id()` | Scoped unique ids | For `for`/`id`, `aria-controls`, `aria-labelledby` |
+| `x-transition` | Enter/leave animation | `.duration.300ms` `.opacity` `.scale.90` `.scale.origin.top` or the six class hooks |
+
+Full syntax, every modifier, and edge cases: **`references/alpine-directives.md`**.
+
+### Event modifiers (`x-on`)
+
+`.prevent` `.stop` `.self` `.outside` (only while the element is visible) `.window` `.document` `.once` `.debounce[.500ms]` `.throttle[.500ms]` `.passive` `.passive.false` `.capture` `.camel` `.dot`
+
+Key modifiers: `.enter` `.escape` `.space` `.tab` `.up/.down/.left/.right` `.shift` `.ctrl` `.cmd`/`.meta` `.alt` `.caps-lock` `.equal` `.period` `.comma` `.slash`, or any kebab-cased `KeyboardEvent.key` (`.page-down`). Chain them: `@keydown.ctrl.enter="save()"`. Since 3.14 the `.shift/.ctrl/.cmd/.alt` modifiers also work on mouse events (`@click.shift`).
+
+## Magics
+
+| Magic | Purpose |
+|-------|---------|
+| `$el` | The current element |
+| `$refs` | Elements named with `x-ref` |
+| `$store` | Global stores (`$store.cart.count`) |
+| `$watch('prop', (value, old) => …)` | Watch a property (dot paths allowed, deep by default, lazy) |
+| `$dispatch('name', detail, options?)` | Bubbling `CustomEvent`; returns `false` if cancelled; `$dispatch('input', v)` drives an outer `x-model` |
+| `$nextTick(cb?)` | After the next DOM flush; awaitable |
+| `$root` | Closest `x-data` element |
+| `$data` | Merged current scope |
+| `$id('name', key?)` | Scoped id, see `x-id` |
+
+Plugin magics: `$persist`, `$focus`, `$anchor`, `$money`/`$input` (mask), `$width`/`$height` (resize), `$item`/`$position` (sort).
+
+## Global state
+
+```html
+<script>
+document.addEventListener('alpine:init', () => {
+  Alpine.store('toasts', {
     items: [],
-    add(message) { this.items.push({ message, id: Date.now() }) },
-    remove(id) { this.items = this.items.filter(n => n.id !== id) },
-    get count() { return this.items.length }
+    init() { /* runs right after registration */ },
+    add(message, type = 'info') {
+      const id = crypto.randomUUID()
+      this.items.push({ id, message, type })
+      setTimeout(() => this.remove(id), 5000)
+    },
+    remove(id) { this.items = this.items.filter(t => t.id !== id) },
   })
 })
 </script>
-
-<span x-data x-text="$store.notifications.count"></span>
+<button type="button" x-data @click="$store.toasts.add('Saved')">Save</button>
 ```
 
-## Transitions
+`Alpine.store('name')` reads a store from plain JS. `Alpine.bind('Name', () => ({ … }))` packages a bundle of attributes and listeners for reuse via `x-bind="Name"`.
 
-Add smooth enter/leave animations to `x-show` and `x-if`:
+## Official plugins (all `@alpinejs/<name>`, versioned with core)
+
+| Plugin | Gives you | Essentials |
+|--------|-----------|------------|
+| **focus** | `x-trap`, `$focus` | `x-trap.inert.noscroll="open"` for dialogs; `.noreturn`, `.noautofocus` |
+| **collapse** | `x-collapse` | On an `x-show` element; `.duration.500ms`, `.min.50px` |
+| **intersect** | `x-intersect[:enter|:leave]` | `.once` `.half` `.full` `.threshold.50` `.margin.200px` `.parent` `.dwell[.500ms]` |
+| **resize** | `x-resize`, `$width`/`$height` | `.document`, `.viewport` |
+| **persist** | `$persist(v)` | `.as('key')`, `.using(sessionStorage)`; use `function` syntax in `Alpine.data` for `this.$persist` |
+| **mask** | `x-mask`, `x-mask:dynamic`, `$money`, `$input` | `9` digit, `a` letter, `*` any |
+| **anchor** | `x-anchor` (Floating UI) | `.bottom-start.offset.8`, `.noflip`, `.fixed`, `.no-style` + `$anchor.x/y` |
+| **morph** | `Alpine.morph(el, html, opts)`, `Alpine.morphBetween(start, end, html)` | Keeps Alpine state across DOM updates; keyed by `key=""` by default |
+| **sort** | `x-sort`, `x-sort:item/:group/:handle/:ignore/:config`, `$item`/`$position` | SortableJS under the hood; `.ghost` |
+
+Details, options and examples: **`references/alpine-plugins.md`**.
+
+## Alpine + htmx
+
+Alpine and htmx coexist well because htmx swaps HTML and Alpine's MutationObserver initializes any `x-data` that arrives. The three things that go wrong:
+
+1. **State lost on swap.** Alpine state lives on the `x-data` element. If htmx swaps that element (or an ancestor) the state is recreated from scratch. Put `x-data` on a parent *above* the `hx-target`, or accept the reset and let the server render the initial state.
+2. **Wrong event name.** The HTML parser lowercases attribute names, so `@htmx:afterRequest` reaches Alpine as `@htmx:afterrequest` and never matches. The correct spelling depends on the htmx line (check the script tag):
+   - **htmx 2.x** dispatches every event twice, camelCase and kebab-case. Use the kebab form: `@htmx:after-request`, `@htmx:response-error`, `@htmx:after-swap`. `@htmx:afterRequest` silently never fires.
+   - **htmx 4** names are already lowercase and colon-separated, dispatched once: `@htmx:after:request`, `@htmx:response:error`, `@htmx:after:swap`. The kebab aliases are gone.
+3. **Alpine-rendered DOM being swapped.** Do not `hx-target` into something `x-for`/`x-if` controls; give htmx its own container.
 
 ```html
-<div x-show="open"
-     x-transition:enter="transition ease-out duration-300"
-     x-transition:enter-start="opacity-0 transform scale-90"
-     x-transition:enter-end="opacity-100 transform scale-100"
-     x-transition:leave="transition ease-in duration-200"
-     x-transition:leave-start="opacity-100 transform scale-100"
-     x-transition:leave-end="opacity-0 transform scale-90">
+<div x-data="{ open: false }">                        <!-- state lives here -->
+  <button type="button" @click="open = true">Edit</button>
+  <form x-show="open" x-cloak
+        hx-post="/notes/42" hx-target="#note-42" hx-swap="outerHTML"
+        @htmx:after-request="if ($event.detail.successful) open = false">
+    <!-- htmx 4: @htmx:after:request="if ($event.detail.ctx.response.status < 400) open = false" -->
+    …
+  </form>
+</div>
+<ul><li id="note-42">…</li></ul>                      <!-- swap target lives outside -->
 ```
 
-Shorthand `x-transition` applies sensible defaults (fade + scale).
+- Pass Alpine data to htmx with `:hx-vals="JSON.stringify({ id })"` (htmx re-reads attributes at request time).
+- To keep Alpine state *inside* swapped content, morph instead of replacing. htmx 2.x: the `alpine-morph` extension (`hx-ext="alpine-morph" hx-swap="morph"`, needs `@alpinejs/morph` loaded before Alpine) or `idiomorph`. htmx 4: `hx-swap="outerMorph"` is built in; add the `hx-alpine-compat` extension so `x-data` state is carried across the morph and Alpine initialization waits until the swap settles.
+- Alpine initializes swapped-in nodes automatically; `Alpine.initTree()` is only needed for `x-ignore`d or hand-built nodes. Markup that Alpine renders with `hx-*` attributes needs `htmx.process(el)`.
+- Which library owns what, CSRF, and the full 2.x/4 event table live in the **htmx** skill.
 
-## Official Plugins
+## Accessibility
 
-Load plugins **before** Alpine.js in `<head>`:
+- **Dialogs**: `role="dialog"`, `aria-modal="true"`, `aria-labelledby` via `x-id`/`$id`, `x-trap.inert.noscroll="open"`, `@keydown.escape.prevent.stop="close()"`, return focus to the trigger on close. See the modal pattern in `references/alpine-patterns.md`.
+- **Dropdowns/popovers**: trigger has `type="button"`, `:aria-expanded="open"`, `:aria-controls="$id('panel')"`; close on `@click.outside`, Escape, and `@focusin.window` leaving the panel. Only use `role="menu"`/`menuitem` for true command menus with arrow-key navigation.
+- **Disclosure/accordion**: `:aria-expanded` on the button, `x-collapse` on the panel.
+- **Toggles**: `:aria-pressed` for toggle buttons, or `role="switch"` + `:aria-checked`.
+- **Live regions**: `aria-live="polite"` on toast/status containers that exist before content arrives.
+- **Visibility vs. presence**: `x-show` content is hidden from assistive tech while `display:none`, which is usually what you want; `x-if` removes it entirely.
 
-| Plugin | Purpose | Key directive/feature |
-|--------|---------|----------------------|
-| **Focus** | Focus trapping for modals/dialogs | `x-trap`, `x-trap.inert.noscroll` |
-| **Collapse** | Smooth height animations | `x-collapse`, `x-collapse.duration.500ms` |
-| **Intersect** | Intersection Observer | `x-intersect`, `x-intersect:enter`, `x-intersect:leave` |
-| **Persist** | LocalStorage persistence | `$persist(value)`, `$persist(value).as('key')` |
-| **Mask** | Input masking | `x-mask="(999) 999-9999"`, `x-mask:dynamic` |
-| **Morph** | DOM morphing | `Alpine.morph(el, html)` |
-| **Sort** | Drag-and-drop sorting | `x-sort`, `x-sort:item`, `x-sort:group` |
+## CSP build
 
-## Alpine + HTMX Integration
+`@alpinejs/csp` evaluates expressions without `eval`/`new Function`. Since 3.15 it has a real expression parser, so most markup works unchanged: object and array literals, property paths (`user.name`, `items[0]`), comparisons, `&&`/`||`/`!`, ternaries, string concatenation, assignments and `count++`, `x-model="user.name"`, and method calls on your data (`items.push(x)`). Not supported: arrow functions, template literals, destructuring, spread, globals (`window`, `document`, `Math`, `JSON`, `console`), and `x-html`. Nested property assignment (`user.name = 'x'`) works on plain data objects since 3.15.12 even though the docs still list it as unsupported; a method call is the portable choice. Keep anything non-trivial in `Alpine.data()` methods.
 
-Alpine handles UI state, HTMX handles server communication. They complement each other.
+## Reference files
 
-### Event bridging
-
-Use kebab-case for HTMX events in Alpine listeners (not camelCase):
-
-```html
-<button hx-post="/api/save"
-        @htmx:before-request="$el.disabled = true; $el.textContent = 'Saving...'"
-        @htmx:after-request="$el.disabled = false; $el.textContent = 'Save'"
-        @htmx:response-error="$store.toasts.add('Save failed', 'error')">
-    Save
-</button>
-```
-
-### Key patterns
-
-- **Dynamic hx-vals from Alpine state**: `:hx-vals="JSON.stringify({ id: currentId })"`
-- **Close modals after success**: `@htmx:after-request="if($event.detail.successful) closeModal()"`
-- **Reset Alpine state after swap**: `@htmx:after-swap="editing = false"`
-- **Preserve Alpine scope**: Place `x-data` on a parent **above** the HTMX swap target — Alpine state is lost if the `x-data` element itself is swapped out
-
-## Accessibility Requirements
-
-- Modals: `role="dialog"`, `aria-labelledby`, `aria-modal="true"`, focus trap with `x-trap.inert.noscroll`
-- Return focus to trigger element on close: `$refs.trigger.focus()`
-- Escape key closes: `@keydown.escape.window="close()"`
-- Dropdowns: `aria-expanded`, `aria-haspopup`, `role="menu"` on container
-- Toggle buttons: `:aria-pressed="isActive"`
-- Live regions: `aria-live="polite"` for dynamic content updates
-
-## Additional Resources
-
-### Reference Files
-- **`references/alpine-directives.md`** — Complete directive reference with all modifiers, edge cases, and advanced patterns
-- **`references/alpine-patterns.md`** — Common component patterns: modals, dropdowns, tabs, accordions, search filters, toast notifications, and more
+- **`references/alpine-directives.md`** — every directive and magic with all modifiers, globals (`Alpine.data/store/bind/directive/magic/plugin/deferInit/setErrorHandler`), reactivity gotchas.
+- **`references/alpine-plugins.md`** — the nine official plugins with options and examples.
+- **`references/alpine-patterns.md`** — accessible modal, dropdown, tabs, accordion, toasts, filters, wizard, dark mode, custom inputs with `x-modelable`, sortable lists, and more.
