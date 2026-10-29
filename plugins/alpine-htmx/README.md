@@ -5,17 +5,17 @@ A Claude Code plugin with expert guidance for **Alpine.js v3** and **htmx** (bot
 ## Install
 
 ```text
-/plugin install alpine-htmx --marketplace cyface/alpine-htmx-claude-plugin
+/plugin install alpine-htmx --marketplace cyface/cyface-claude-plugin-marketplace
 ```
 
-That single command works on Claude Code 2.1.275 or later. On older versions, add the marketplace first:
+That single command works on Claude Code 2.1.275 or later. On older versions, add the [cyface marketplace](https://github.com/cyface/cyface-claude-plugin-marketplace) first:
 
 ```text
-/plugin marketplace add cyface/alpine-htmx-claude-plugin
+/plugin marketplace add cyface/cyface-claude-plugin-marketplace
 /plugin install alpine-htmx@cyface
 ```
 
-From a shell: `claude plugin marketplace add cyface/alpine-htmx-claude-plugin && claude plugin install alpine-htmx@cyface`. To try a local checkout without installing: `claude --plugin-dir ./alpine-htmx-claude-plugin`.
+From a shell: `claude plugin marketplace add cyface/cyface-claude-plugin-marketplace && claude plugin install alpine-htmx@cyface`. To try a local checkout without installing: `claude --plugin-dir ./alpine-htmx-claude-plugin`.
 
 ## What's included
 
@@ -60,7 +60,6 @@ Eval runs call the model with your credentials and cost real usage.
 ```
 .claude-plugin/
 ├── plugin.json          # manifest
-├── marketplace.json     # self-hosted marketplace entry for one-step install
 └── icon.png
 skills/
 ├── alpine-js/
