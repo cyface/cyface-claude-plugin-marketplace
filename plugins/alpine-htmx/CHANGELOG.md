@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Plugin packaging
+- Removed `.claude-plugin/marketplace.json`. It was a single-plugin marketplace that was also named `cyface`, so it clashed with the [cyface marketplace](https://github.com/cyface/cyface-claude-plugin-marketplace). Install from that marketplace instead: `/plugin install alpine-htmx --marketplace cyface/cyface-claude-plugin-marketplace`. If you added `cyface/alpine-htmx-claude-plugin` as a marketplace, remove it with `/plugin marketplace remove cyface` before adding the cyface marketplace.
+
 ## 2.0.0 — 2026-10-29
 
 Full audit against the current Claude Code plugin standards and the current state of both frameworks.
