@@ -1,11 +1,21 @@
 {
+  "$schema": "https://anthropic.com/claude-code/plugin.schema.json",
   "name": "foundryvtt-dev",
-  "version": "1.0.0",
-  "description": "Expert guidance for FoundryVTT v13 system and module development — ApplicationV2 migration, sheets, forms, actions, tabs, drag-drop, hooks, data model, testing, and i18n. Includes a proactive code reviewer for deprecated patterns and common mistakes. Not affiliated with Foundry Gaming LLC.",
+  "version": "2.1.0",
+  "description": "Expert guidance for FoundryVTT v14 system and module development — data models, Active Effects V2, ApplicationV2 sheets, Regions, Scene Levels, hooks, testing, and i18n. Includes a proactive code reviewer for deprecated patterns and common mistakes, plus a V13-to-V14 migration reference. Not affiliated with Foundry Gaming LLC.",
   "author": {
     "name": "Tim White",
-    "email": "tim@cyface.com"
+    "email": "tim@cyface.com",
+    "url": "https://github.com/cyface"
   },
   "homepage": "https://github.com/cyface/foundryvtt-dev-claude-plugin",
-  "keywords": ["foundryvtt", "foundry", "vtt", "applicationv2", "game-system", "tabletop", "rpg"]
+  "repository": "https://github.com/cyface/foundryvtt-dev-claude-plugin",
+  "license": "MIT",
+  "keywords": ["foundryvtt", "foundry", "vtt", "applicationv2", "datamodel", "game-system", "tabletop", "rpg"],
+  "privacyPolicyUrl": "https://github.com/cyface/foundryvtt-dev-claude-plugin/blob/main/PRIVACY.md",
+  "supportUrl": "https://github.com/cyface/foundryvtt-dev-claude-plugin/issues",
+  "metadata": {
+    "foundryVerified": "14.369",
+    "foundryVerifiedDate": "2026-10-30"
+  }
 }
