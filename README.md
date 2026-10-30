@@ -7,7 +7,7 @@ A [Claude Code](https://claude.ai/code) plugin marketplace for custom plugins by
 | Plugin | Description |
 |--------|-------------|
 | [alpine-htmx](plugins/alpine-htmx) | Expert guidance for Alpine.js v3 and htmx (2.x and 4) — directives, attributes, patterns, and combined usage. Includes htmx upgrade and debugging skills and a proactive code reviewer. |
-| [foundryvtt-dev](plugins/foundryvtt-dev) | Expert guidance for FoundryVTT v13 system and module development — ApplicationV2, hooks, data model, testing, and i18n. Includes a proactive code reviewer. Not affiliated with Foundry Gaming LLC. |
+| [foundryvtt-dev](plugins/foundryvtt-dev) | Expert guidance for FoundryVTT v14 system and module development — ApplicationV2, data models, hooks, Regions, testing, and i18n. Includes a proactive code reviewer. Not affiliated with Foundry Gaming LLC. |
 | [ui-design-principles](plugins/ui-design-principles) | Expert UI/UX design guidance based on Universal Principles of Design — visual hierarchy, interaction patterns, cognitive load, accessibility, and layout. Includes a proactive design reviewer. |
 | [coolify](plugins/coolify) | Interact with a self-hosted Coolify instance via its REST API — manage applications, databases, deployments, servers, services, and projects. |
 

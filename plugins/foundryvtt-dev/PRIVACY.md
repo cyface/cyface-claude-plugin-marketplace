@@ -2,11 +2,11 @@
 
 **foundryvtt-dev** Claude Code Plugin
 
-Last updated: March 2, 2026
+Last updated: October 30, 2026
 
 ## Overview
 
-The foundryvtt-dev plugin is a collection of static reference files (Markdown) that provide FoundryVTT v13 development guidance within Claude Code. It does not collect, transmit, or store any data.
+The foundryvtt-dev plugin is a collection of static reference files (Markdown) that provide FoundryVTT v14 development guidance within Claude Code. It does not collect, transmit, or store any data.
 
 ## Disclaimer
 
@@ -24,7 +24,7 @@ This plugin collects **no data whatsoever**. Specifically:
 
 ## How the Plugin Works
 
-The plugin consists entirely of static Markdown files that are read locally by Claude Code to provide contextual guidance about FoundryVTT v13 development. All processing happens locally within your Claude Code session. The plugin does not include any executable code, MCP servers, or external service integrations.
+The plugin consists entirely of static Markdown files that are read locally by Claude Code to provide contextual guidance about FoundryVTT v14 development. All processing happens locally within your Claude Code session. The plugin does not include any executable code, MCP servers, or external service integrations.
 
 ## Third-Party Services
 
