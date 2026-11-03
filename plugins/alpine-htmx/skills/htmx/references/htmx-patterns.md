@@ -199,7 +199,7 @@ Server behavior:
 ```html
 <!-- Fixed interval; stops when the tab is hidden -->
 <div hx-get="/status" hx-trigger="every 5s [!document.hidden]" hx-swap="innerHTML">Status: active</div>
-<!-- 4.0.0 parses the filter only on the event token: hx-trigger="every[!document.hidden] 5s" -->
+<!-- 4.0.0 parses the filter only on the event token (4.0.1 fixed this): hx-trigger="every[!document.hidden] 5s" works on all 4.x -->
 
 <!-- Load polling: the fragment re-requests itself until the server stops rendering the trigger -->
 <div hx-get="/jobs/123" hx-trigger="load delay:2s" hx-swap="outerHTML">

@@ -1,6 +1,6 @@
 # htmx — Attribute, Config, Event and Header Reference (2.x and 4)
 
-Columns marked **2.x** describe htmx 2.0.11; **4** describes htmx 4.0.0. Unmarked text applies to both.
+Columns marked **2.x** describe htmx 2.0.11; **4** describes htmx 4.0.1 (differences from 4.0.0 are called out). Unmarked text applies to both.
 
 ## Contents
 
@@ -96,7 +96,7 @@ hx-trigger="submit, keyup[key=='Enter']"
 hx-trigger="load"
 hx-trigger="revealed"
 hx-trigger="intersect once root:#scroller threshold:0.5"   <!-- 4 adds rootMargin: -->
-hx-trigger="every 10s [!document.hidden]"      <!-- 2.x form; in 4.0.0 write every[!document.hidden] 10s, see below -->
+hx-trigger="every 10s [!document.hidden]"      <!-- 2.x form; 4.0.0 needs every[!document.hidden] 10s (works on all 4.x), see below -->
 hx-trigger="contactsChanged from:body"          <!-- paired with the HX-Trigger response header -->
 ```
 
@@ -116,7 +116,7 @@ Selectors containing spaces or commas: **2.x** wraps them in parentheses or brac
 
 Filters are JavaScript in brackets (`click[ctrlKey && !shiftKey]`) and need `eval` (see CSP under Security in SKILL.md).
 
-Polling: **2.x** `every 5s [filter]`; **4.0.0** parses the filter only on the event token, `every[filter] 5s` (the documented `every 5s [filter]` form is silently ignored). **2.x** stops when the server answers **286**. **4** stops only when the polling element leaves the DOM or the filter is false; `htmx:abort` cancels the in-flight fetch but not the interval, so load polling (re-render without the trigger) is the reliable stop.
+Polling: **2.x** `every 5s [filter]`; **4.0.0** parses the filter only on the event token, `every[filter] 5s` (the documented `every 5s [filter]` form is silently ignored; 4.0.1 respects it, and `every[filter] 5s` works on all 4.x). **2.x** stops when the server answers **286**. **4** stops only when the polling element leaves the DOM or the filter is false; `htmx:abort` cancels the in-flight fetch but not the interval, so load polling (re-render without the trigger) is the reliable stop.
 
 ---
 
@@ -373,7 +373,7 @@ Community (notable): `alpine-morph`, `class-tools`, `json-enc`, `loading-states`
 
 ### 4
 
-All official extensions ship inside `htmx.org@4.0.0/dist/ext/<name>.js`; including the script activates it. Optional allow-list: `<meta name="htmx-config" content='{"extensions": "sse, preload"}'>` using registration names (`hx-sse.js` → `sse`, `hx-preload.js` → `preload`, `htmx-2-compat.js` → `compat`). The `htmax.js` bundle packs core plus the most common extensions.
+All official extensions ship inside `htmx.org@4.0.1/dist/ext/<name>.js`; including the script activates it. Optional allow-list: `<meta name="htmx-config" content='{"extensions": "sse, preload"}'>` using registration names (`hx-sse.js` → `sse`, `hx-preload.js` → `preload`, `htmx-2-compat.js` → `compat`). The `htmax.js` bundle packs core plus the most common extensions.
 
 | Extension | Purpose |
 |-----------|---------|

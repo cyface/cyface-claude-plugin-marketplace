@@ -53,7 +53,7 @@ Eval runs call the model with your credentials and cost real usage.
 |-----------|---------|-------|
 | Alpine.js | 3.17.x | Latest stable; no v4 exists. Includes `x-modelable`, Anchor/Resize plugins, `Alpine.deferInit`, the new CSP evaluator. |
 | htmx 2.x | 2.0.11 | npm `latest`; supported indefinitely. Includes `<hx-partial>` (2.0.11) and the `inherit` keyword. |
-| htmx 4 | 4.0.0 | Stable since 2026-08-28; fetch-based, explicit `:inherited` attribute inheritance, `htmx:phase:action` events, built-in morphing, `hx-status`, no `hx-ext`, no 286. |
+| htmx 4 | 4.0.1 | Stable since 2026-08-28; fetch-based, explicit `:inherited` attribute inheritance, `htmx:phase:action` events, built-in morphing, `hx-status`, no `hx-ext`, no 286. |
 
 ## Repository layout
 
