@@ -1,7 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/plugin.schema.json",
   "name": "alpine-htmx",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Expert guidance for Alpine.js v3 and htmx (2.x and 4) — directives, attributes, patterns, and combined usage — plus htmx upgrade and debugging skills and a proactive code reviewer for anti-patterns, accessibility, and security.",
   "author": {
     "name": "Tim White",

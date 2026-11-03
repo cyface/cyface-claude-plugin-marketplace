@@ -54,7 +54,7 @@ Ask for, or find in the project, these in this order:
 - `hx-sync` on the element or an ancestor is dropping or queuing it; 4.0.0 also queues repeat requests from the same element by default.
 - `hx-confirm` (or an `htmx:confirm` listener that called `preventDefault()` without `issueRequest()`) is blocking.
 - An ancestor has `hx-disable` (2.x) / `hx-ignore` (4), or 2.x `htmx.config.disableSelector` matches.
-- Trigger syntax: multi-word selectors need `from:(closest form)` in 2.x and `from:'closest form'` in 4; 4.0.0 parses polling filters only as `every[cond] 5s`, not `every 5s [cond]`.
+- Trigger syntax: multi-word selectors need `from:(closest form)` in 2.x and `from:'closest form'` in 4; 4.0.0 parses polling filters only as `every[cond] 5s` and silently ignores `every 5s [cond]` (fixed in 4.0.1).
 - Filters like `click[ctrlKey]` and `hx-on` need `eval`; a strict CSP without `'unsafe-eval'` silently disables them (2.x `allowEval=false` too).
 - Event name in `hx-trigger="myEvent from:body"` is camelCase but the attribute was lowercased by the HTML parser, so it listens for `myevent`.
 
@@ -96,7 +96,7 @@ Ask for, or find in the project, these in this order:
 - `htmx:configRequest` / `htmx:config:request` handler registered after the first request, or on the wrong element.
 
 ### Polling will not stop
-- 2.x: return status 286. 4: 286 does nothing; the interval ends only when the element is removed or replaced (load polling) or its filter is false (`every[!done] 2s` in 4.0.0).
+- 2.x: return status 286. 4: 286 does nothing; the interval ends only when the element is removed or replaced (load polling) or its filter is false (`every[!done] 2s` works on all 4.x).
 - Polling element re-rendered by its own response with the `hx-trigger` still present.
 
 ### Extension seems inactive

@@ -25,7 +25,7 @@ htmx lets any element issue an HTTP request and swap the **HTML** response into 
 
 Two supported majors exist and they differ in ways that silently break code:
 
-| | **htmx 2.x** (2.0.11) | **htmx 4** (4.0.0, stable 2026-08-28) |
+| | **htmx 2.x** (2.0.11) | **htmx 4** (4.0.1; 4.0.0 stable 2026-08-28) |
 |---|---|---|
 | Status | npm `latest`; htmx.org quick start; "supported indefinitely" | npm `next` until 2027 so unpinned 2.x users are not force-upgraded; the team's docs and shipped AI guidance now target it |
 | Transport | XMLHttpRequest | `fetch()`; streaming swaps; 60 s default timeout |
@@ -48,12 +48,12 @@ Install (pin exact versions; both docs recommend self-hosting rather than a CDN 
 <script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.11/dist/htmx.min.js" integrity="sha384-2OatzQy1H+Zd/IIrjr1TcuDGqLXeHhbooAyJY1KdQMKnr4LZ22k31GBLdYKHmVjg" crossorigin="anonymous"></script>
 
 <!-- htmx 4 -->
-<script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0" integrity="sha384-BvJpBiO8Kh31EqtJe5DRIeWrHWnCGkwytKs9NKFi86Hhw96dEqdEMzZDeK9iEGTc" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.1" integrity="sha384-Qp9rdC8H7EqOoX+nR0P3RPG2Noji+qdwJlGpfzwQJsfOpp3sGwIdSP9xO3+UlEhn" crossorigin="anonymous"></script>
 <!-- htmx 4 extensions live in the same package -->
-<script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0/dist/ext/hx-preload.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.1/dist/ext/hx-preload.js"></script>
 ```
 
-For a migration, use the **`htmx-upgrade`** skill (it wraps the shipped checker, `npx htmx.org@4.0.0 upgrade-check -- ./templates`); for a failure you cannot explain, use **`htmx-debug`**.
+For a migration, use the **`htmx-upgrade`** skill (it wraps the shipped checker, `npx htmx.org@4.0.1 upgrade-check -- ./templates`); for a failure you cannot explain, use **`htmx-debug`**.
 
 ## The request/target/swap/trigger model (both versions)
 
@@ -73,7 +73,7 @@ For a migration, use the **`htmx-upgrade`** skill (it wraps the shipped checker,
 - **Targets**: CSS selector or extended selector `this`, `closest tr`, `find .body`, `next .error`, `previous .row`. Relative selectors avoid inventing ids inside loops.
 - **Swap styles**: `innerHTML` (default) `outerHTML` `textContent` `beforebegin` `afterbegin` `beforeend` `afterend` `delete` `none`. htmx 4 adds `outerSync`, `innerMorph`, `outerMorph` and the aliases `before`/`prepend`/`append`/`after`.
 - **Swap modifiers**: `swap:200ms` `settle:…` `transition:true` `ignoreTitle:true` `scroll:top|bottom` `show:top|bottom|none`; 2.x `focus-scroll:true` and `show:#id:top`, 4 `focusScroll:true` plus separate `scrollTarget:`/`showTarget:` selectors, `strip:true`, `swapEmpty:true`.
-- **Triggers**: events (`click`, `input`, `submit`, custom), `load`, `revealed`, `intersect [once] [root:<sel>] [threshold:0.5]`, `every 5s [filter]` (4.0.0: `every[filter] 5s`). Modifiers: `once` `changed` `delay:300ms` `throttle:1s` `from:<sel>` `target:<sel>` `consume`; 2.x also `queue:first|last|all|none`; 4 also `prevent` `stop` `halt` `capture` `passive`. Filters: `keyup[key=='Enter']`, `click[ctrlKey]`. Multi-word selectors: `from:(closest form)` in 2.x, `from:'closest form'` in 4.
+- **Triggers**: events (`click`, `input`, `submit`, custom), `load`, `revealed`, `intersect [once] [root:<sel>] [threshold:0.5]`, `every 5s [filter]` (4.0.0 only honors `every[filter] 5s`; 4.0.1 honors both). Modifiers: `once` `changed` `delay:300ms` `throttle:1s` `from:<sel>` `target:<sel>` `consume`; 2.x also `queue:first|last|all|none`; 4 also `prevent` `stop` `halt` `capture` `passive`. Filters: `keyup[key=='Enter']`, `click[ctrlKey]`. Multi-word selectors: `from:(closest form)` in 2.x, `from:'closest form'` in 4.
 - **Concurrency**: `hx-sync="this:replace"` (abort the in-flight request, issue the new one), `this:drop`, `this:abort`, `this:queue last`. Always use it on search inputs; `delay:` alone does not stop stale responses overwriting newer ones.
 
 Full attribute, modifier, config and header tables for both lines: **`references/htmx-attributes.md`**.
@@ -173,7 +173,7 @@ htmx 4 also ships `hx-live`, its own small reactive scripting layer; prefer Alpi
 - Detect htmx requests with the `HX-Request: true` header and return a fragment; otherwise return the full page (progressive enhancement, and required for `hx-push-url`). Add `Vary: HX-Request` (4: also `Vary: HX-Request-Type`) when caching.
 - Request headers: `HX-Target`, `HX-Current-URL`, `HX-Boosted`, `HX-History-Restore-Request`; 2.x `HX-Trigger`/`HX-Trigger-Name`/`HX-Prompt` (element id); 4 `HX-Source` (`tag#id`), `HX-Request-Type` (`partial`|`full`).
 - Response headers: `HX-Trigger`, `HX-Retarget`, `HX-Reswap`, `HX-Reselect`, `HX-Push-Url`, `HX-Replace-Url`, `HX-Redirect`, `HX-Location`, `HX-Refresh`; 2.x only: `HX-Trigger-After-Swap`, `HX-Trigger-After-Settle`.
-- Polling: 2.x stops on a **286** response; 4 stops only when the polling element is removed or replaced (return a fragment without the `hx-trigger="every …"` element) or a filter is false (4.0.0 parses it only as `every[!done] 2s`, not the documented `every 2s [!done]`).
+- Polling: 2.x stops on a **286** response; 4 stops only when the polling element is removed or replaced (return a fragment without the `hx-trigger="every …"` element) or a filter is false (4.0.0 parses it only as `every[!done] 2s`, not the documented `every 2s [!done]`; 4.0.1 fixed that, and `every[!done] 2s` works on all 4.x).
 
 ## Reference files
 
@@ -182,4 +182,4 @@ htmx 4 also ships `hx-live`, its own small reactive scripting layer; prefer Alpi
 
 Companion skills in this plugin: **`htmx-upgrade`** (2.x to 4 migration workflow and rename tables) and **`htmx-debug`** (lifecycle checklist and symptom-to-cause guide).
 
-When a question goes beyond these files, fetch the official docs rather than guessing: htmx 4 serves every page as Markdown (`https://four.htmx.org/docs.md`, `/reference/attributes/hx-swap.md`, …) with an index at `https://four.htmx.org/llms.txt`; the `htmx.org@4.0.0` npm package also ships maintainer-written guidance in `dist/skills/` (`htmx-guidance.md`, `htmx-debugging.md`, `htmx-upgrade-from-htmx2.md`, `htmx-extension-authoring.md`). htmx 2 docs are at `https://htmx.org/docs/` and `https://htmx.org/attributes/<name>/` (no llms.txt).
+When a question goes beyond these files, fetch the official docs rather than guessing: htmx 4 serves every page as Markdown (`https://four.htmx.org/docs.md`, `/reference/attributes/hx-swap.md`, …) with an index at `https://four.htmx.org/llms.txt`; the `htmx.org@4.0.1` npm package also ships maintainer-written guidance in `dist/skills/` (`htmx-guidance.md`, `htmx-debugging.md`, `htmx-upgrade-from-htmx2.md`, `htmx-extension-authoring.md`). htmx 2 docs are at `https://htmx.org/docs/` and `https://htmx.org/attributes/<name>/` (no llms.txt).

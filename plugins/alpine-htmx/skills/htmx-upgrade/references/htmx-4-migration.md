@@ -1,6 +1,6 @@
 # Migrating from htmx 2.x to htmx 4
 
-htmx 4 is a ground-up rewrite (fetch-based, explicit inheritance, new event names). This is the practical worklist, adapted from the upgrade guidance htmx ships in its own package (`htmx.org@4.0.0/dist/skills/htmx-upgrade-from-htmx2.md`) and https://four.htmx.org/docs#migrating-from-htmx-2x-to-4x.
+htmx 4 is a ground-up rewrite (fetch-based, explicit inheritance, new event names). This is the practical worklist, adapted from the upgrade guidance htmx ships in its own package (`htmx.org@4.0.1/dist/skills/htmx-upgrade-from-htmx2.md`) and https://four.htmx.org/docs#migrating-from-htmx-2x-to-4x.
 
 ## When to migrate
 
@@ -13,8 +13,8 @@ htmx 4 is a ground-up rewrite (fetch-based, explicit inheritance, new event name
 1. Inventory: grep for `hx-`, `data-hx-`, `htmx:` listeners, `htmx.` API calls, `HX-` header handling in server code, and extension scripts.
 2. Run the shipped checker to get a `file:line` worklist:
    ```bash
-   npx htmx.org@4.0.0 upgrade-check -- ./templates
-   npx htmx.org@4.0.0 upgrade-check --ext .vue -- ./src     # extra extensions (default: .html .php .js .ts .jinja .jinja2 .j2 .erb .hbs)
+   npx htmx.org@4.0.1 upgrade-check -- ./templates
+   npx htmx.org@4.0.1 upgrade-check --ext .vue -- ./src     # extra extensions (default: .html .php .js .ts .jinja .jinja2 .j2 .erb .hbs)
    ```
 3. Work through the steps below file by file; it does not rewrite anything.
 4. Do the `hx-disable` → `hx-ignore` rename **before** `hx-disabled-elt` → `hx-disable`.
@@ -25,10 +25,10 @@ htmx 4 is a ground-up rewrite (fetch-based, explicit inheritance, new event name
 ## Step 1: swap the script and pin the version
 
 ```html
-<script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0" integrity="sha384-BvJpBiO8Kh31EqtJe5DRIeWrHWnCGkwytKs9NKFi86Hhw96dEqdEMzZDeK9iEGTc" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.1" integrity="sha384-Qp9rdC8H7EqOoX+nR0P3RPG2Noji+qdwJlGpfzwQJsfOpp3sGwIdSP9xO3+UlEhn" crossorigin="anonymous"></script>
 ```
 
-`npm install htmx.org@4.0.0` (the `latest` tag still resolves to 2.x). Extensions now come from `htmx.org/dist/ext/*.js`; delete `htmx-ext-*` packages.
+`npm install htmx.org@4.0.1` (the `latest` tag still resolves to 2.x). Extensions now come from `htmx.org/dist/ext/*.js`; delete `htmx-ext-*` packages.
 
 ## Step 2: attribute renames (order matters)
 
@@ -170,8 +170,8 @@ Optional allow-list: `<meta name="htmx-config" content='{"extensions": "sse, my-
 
 ```html
 <meta name="htmx-config" content='{"implicitInheritance": true, "noSwap": [204, 304, "4xx", "5xx"]}'>
-<script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0/dist/htmx.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0/dist/ext/htmx-2-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.1/dist/htmx.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.1/dist/ext/htmx-2-compat.js"></script>
 ```
 
 `htmx-2-compat` turns on implicit inheritance, restores no-swap on 4xx/5xx, logs where implicit inheritance was relied on, and re-fires the old camelCase event names alongside the new ones (`htmx.config.compat.doNotTriggerOldEvents`, `suppressInheritanceLogs` to tune). It does not restore removed attributes such as `hx-ext` or `hx-params`. Treat it as scaffolding to remove once the steps above are done.
@@ -182,4 +182,4 @@ Optional allow-list: `<meta name="htmx-config" content='{"extensions": "sse, my-
 - `htmx.config.logAll = true` in the console and exercise each interaction; check `htmx:error` events.
 - Confirm CSRF headers still arrive (the most common post-migration 403 is a missing `:inherited`).
 - Confirm error responses render as intended now that 4xx/5xx swap.
-- Confirm any `every` polling stops the way you expect, and that filters use the `every[filter] 5s` form 4.0.0 actually parses.
+- Confirm any `every` polling stops the way you expect, and that filters use the `every[filter] 5s` form, which works on every 4.x (4.0.0 ignored the documented `every 5s [filter]` form; 4.0.1 respects it).

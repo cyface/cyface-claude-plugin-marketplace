@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.1.0 — 2026-11-03
+
+### Version bump
+- htmx 4 (`next`): 4.0.0 → 4.0.1. Alpine.js 3.17.5 and htmx 2.0.11 unchanged.
+
+### Guidance changes (htmx 4 column only)
+- Polling filter: the `every 2s [cond]` form now respects its filter in 4.0.1 (release note: "The `every 2s [cond]` syntax now respects its filter"). Removed the "silently ignored" claim as current behavior; `every[cond] 2s` still documented as working on all 4.x. Files: `skills/htmx/SKILL.md`, `skills/htmx/references/htmx-attributes.md`, `skills/htmx/references/htmx-patterns.md`, `skills/htmx-debug/SKILL.md`, `skills/htmx-upgrade/references/htmx-4-migration.md`.
+
 ## Unreleased
 
 ### Plugin packaging
