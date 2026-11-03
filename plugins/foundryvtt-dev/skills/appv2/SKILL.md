@@ -3,24 +3,26 @@ name: appv2
 description: >-
   This skill should be used when the user asks about "ApplicationV2", "ActorSheetV2",
   "ItemSheetV2", "DocumentSheetV2", "DialogV2", "DEFAULT_OPTIONS", "PARTS",
-  "data-action", "_prepareContext", "HandlebarsApplicationMixin",
+  "data-action", "_prepareContext", "_preparePartContext", "HandlebarsApplicationMixin",
   "sheet registration", "form handling in Foundry", "tabs in Foundry sheets",
-  "drag and drop in Foundry", "V12 to V13 migration", "migrate to V13",
-  "convert to ApplicationV2", "ProseMirror editor", "submitOnChange",
-  "tag form", "actions system", "editImage", "_processFormData",
-  "_processSubmitData", "inline item editing", "CSS theming in Foundry",
-  "theme variables", "CSS layers", or mentions FoundryVTT V13 application
-  classes, sheet patterns, or migration from V12 to V13.
-version: 1.0.0
+  "drag and drop in Foundry", "V13 to V14 migration", "migrate to V14",
+  "V12 to V13 migration", "convert to ApplicationV2", "detached window",
+  "pop-out sheet", "ProseMirror editor", "submitOnChange", "tag form",
+  "actions system", "editImage", "_processFormData", "_processSubmitData",
+  "inline item editing", "CSS theming in Foundry", "theme variables",
+  "CSS layers", or mentions FoundryVTT V13/V14 application classes, sheet
+  patterns, or migration between generations.
 ---
 
-# FoundryVTT V13 ApplicationV2 Development Guide
+# FoundryVTT V14 ApplicationV2 Development Guide
 
-FoundryVTT V13 introduces ApplicationV2 — a complete rewrite of the application layer. It replaces jQuery with plain DOM, introduces declarative actions, template parts, and a new tab system. All new development should use ApplicationV2.
+Target: **FoundryVTT V14** (last-verified build: see the plugin README). ApplicationV2 is the application layer — plain DOM, declarative actions, template parts, and a tab system driven by `static TABS`.
+
+ApplicationV1 (`Application`, `FormApplication`, `Dialog`, `DocumentSheet`) still loads in V14 but is deprecated with **removal targeted for V16**. All new work uses ApplicationV2. V14 ships no core AppV1 windows: in a running world every app root is `.application`, and `.app` matches nothing (this has real CSS consequences — see [CSS Theming](#css-theming)).
+
+Migrating an existing package? See **`references/appv2-migration.md`** for both V13→V14 and V12→V13.
 
 ## Class Hierarchy
-
-Choose the right base class for your use case:
 
 ```
 ApplicationV2 (Base)           -> Configuration dialogs, custom tools
@@ -30,29 +32,27 @@ ApplicationV2 (Base)           -> Configuration dialogs, custom tools
 +-- DialogV2                   -> User prompts, confirmations
 ```
 
-### Quick Reference
-
 ```javascript
-// For actor sheets
+// Actor sheets
 const { HandlebarsApplicationMixin } = foundry.applications.api
 const { ActorSheetV2 } = foundry.applications.sheets
 class MyActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) { }
 
-// For item sheets
+// Item sheets
 const { ItemSheetV2 } = foundry.applications.sheets
 class MyItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) { }
 
-// For configuration dialogs
+// Configuration dialogs
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api
 class MyConfigDialog extends HandlebarsApplicationMixin(ApplicationV2) { }
 
-// For user prompts
-class MyPrompt extends DialogV2 { }
+// User prompts — use the static helpers, rarely a subclass
+const { DialogV2 } = foundry.applications.api
 ```
 
 ## HandlebarsApplicationMixin
 
-Always mix in `HandlebarsApplicationMixin` for template rendering. It provides the `PARTS` system and Handlebars template support.
+Always mix in `HandlebarsApplicationMixin` for template rendering. It provides `PARTS`, `_preparePartContext`, and per-part scroll/focus state preservation.
 
 ```javascript
 const { HandlebarsApplicationMixin } = foundry.applications.api
@@ -61,18 +61,17 @@ class MySheet extends HandlebarsApplicationMixin(ActorSheetV2) { }
 
 ## DEFAULT_OPTIONS
 
-Replaces `defaultOptions` getter. Defined as a static property:
+A static property, not a getter. Options merge automatically up the inheritance chain — never call `mergeObject(super.DEFAULT_OPTIONS, …)`.
 
 ```javascript
 static DEFAULT_OPTIONS = {
   classes: ['my-system', 'sheet', 'actor'],
-  position: {
-    width: 600,
-    height: 600
-  },
+  position: { width: 600, height: 600 },
   window: {
     resizable: true,
-    title: 'MY_SYSTEM.SheetTitle'  // Localization key
+    title: 'MY_SYSTEM.SheetTitle',   // Localization key
+    icon: 'fa-solid fa-user',
+    contentClasses: ['standard-form']
   },
   actions: {
     rollAbilityCheck: this.#rollAbilityCheck,
@@ -86,103 +85,117 @@ static DEFAULT_OPTIONS = {
 
 ```javascript
 static DEFAULT_OPTIONS = {
-  tag: 'form',  // REQUIRED for forms
+  tag: 'form',                // REQUIRED for forms
   form: {
-    submitOnChange: true,   // Auto-save on field change (sheets)
-    closeOnSubmit: false     // Keep open after submit (sheets)
+    submitOnChange: true,     // Auto-save on field change (sheets)
+    closeOnSubmit: false      // Keep open after submit (sheets)
   }
 }
 ```
+
+**Window controls in V14**: the base `window.controls` already contains Detach and Attach entries. If you replace `window.controls` wholesale you lose pop-out support; prefer overriding `_getHeaderControls()` and appending to `super._getHeaderControls()`.
 
 ## PARTS (Template Definitions)
 
-Define template parts instead of a single template:
-
 ```javascript
 static PARTS = {
-  tabs: {
-    template: 'systems/my-system/templates/actor-partial-tabs.html'
-  },
-  character: {
-    template: 'systems/my-system/templates/actor-partial-character.html'
-  },
+  header:    { template: 'systems/my-system/templates/actor/header.hbs' },
+  tabs:      { template: 'templates/generic/tab-navigation.hbs' },   // core partial
+  character: { template: 'systems/my-system/templates/actor/tab-character.hbs' },
   equipment: {
-    template: 'systems/my-system/templates/actor-partial-equipment.html'
+    template: 'systems/my-system/templates/actor/tab-equipment.hbs',
+    templates: ['systems/my-system/templates/actor/item-row.hbs'],   // sub-partials to preload
+    scrollable: ['ol.item-list']                                      // preserved across re-renders
   }
 }
 ```
 
-**Important**: Cannot use CONFIG values in static initializers — hard-code template paths:
+**Template file extension**: Foundry fetches whatever path you give and compiles it with Handlebars, so the extension is a convention, not a requirement. Core and most newer systems use `.hbs`, which this guide uses throughout; `.html` works identically and many existing systems use it. Pick one and stay consistent.
+
+**Cannot use CONFIG values in static initializers** — `CONFIG` is undefined when the class body evaluates:
 
 ```javascript
-// BROKEN — CONFIG is undefined during static initialization
-static PARTS = {
-  form: { template: CONFIG.MY_SYSTEM.templates.dialog }  // ERROR
-}
+// BROKEN
+static PARTS = { form: { template: CONFIG.MY_SYSTEM.templates.dialog } }
 
-// CORRECT — Hard-coded path
-static PARTS = {
-  form: { template: 'systems/my-system/templates/dialog.html' }
-}
+// CORRECT
+static PARTS = { form: { template: 'systems/my-system/templates/dialog.hbs' } }
 ```
+
+Only the *first* part may set `root: true`.
 
 ## _prepareContext() (Replaces getData)
 
 ```javascript
 async _prepareContext(options) {
   const context = await super._prepareContext(options)
-  context.system = this.actor.system    // For ActorSheetV2
+  context.system = this.actor.system
   context.flags = this.actor.flags
   context.editable = this.isEditable
   return context
 }
 ```
 
-For enriched HTML content (ProseMirror editors):
+`DocumentSheetV2._prepareContext` already supplies `document`, `model`, `source` (the raw `_source`), `fields` (the schema fields — bind form inputs to these with the `formInput`/`formGroup` helpers), `editable`, `user`, and `rootId`.
+
+`ApplicationV2._prepareContext` supplies `tabs` automatically **when exactly one tab group is configured** (see below).
+
+Per-part data goes in `_preparePartContext`:
+
+```javascript
+async _preparePartContext(partId, context, options) {
+  const partContext = await super._preparePartContext(partId, context, options)
+  if (partId in partContext.tabs) partContext.tab = partContext.tabs[partId]
+  switch (partId) {
+    case 'equipment':
+      partContext.weapons = this.actor.items.filter(i => i.type === 'weapon')
+      break
+  }
+  return partContext
+}
+```
+
+### Enriched HTML
+
+V14 re-exports `enrichHTML` on the class itself — `TextEditor.implementation` is no longer needed:
 
 ```javascript
 const { TextEditor } = foundry.applications.ux
 
-async _prepareContext(options) {
-  const context = await super._prepareContext(options)
-  context.descriptionHTML = await TextEditor.enrichHTML(
-    this.document.system.description,
-    { secrets: this.document.isOwner, relativeTo: this.document }
-  )
-  return context
-}
+context.descriptionHTML = await TextEditor.enrichHTML(
+  this.document.system.description,
+  { secrets: this.document.isOwner, relativeTo: this.document }
+)
 ```
 
 ## Actions System (Replaces activateListeners)
-
-Declare actions in `DEFAULT_OPTIONS` and use `data-action` in templates:
 
 ```javascript
 static DEFAULT_OPTIONS = {
   actions: {
     rollAbilityCheck: this.#rollAbilityCheck,
-    editItem: this.#editItem,
-    deleteItem: this.#deleteItem
+    // Object form: also respond to right-click (button 2)
+    itemContext: { handler: this.#itemContext, buttons: [0, 2] }
   }
 }
 
 /**
  * @this {MyActorSheet}
  * @param {PointerEvent} event
- * @param {HTMLElement} target
+ * @param {HTMLElement} target   The element carrying [data-action]
  */
 static async #rollAbilityCheck(event, target) {
   event.preventDefault()
-  const ability = target.dataset.ability
-  await this.actor.rollAbilityCheck(ability)
+  await this.actor.rollAbilityCheck(target.dataset.ability)
 }
 ```
 
-**Template:**
 ```html
 <span data-action="rollAbilityCheck" data-ability="str">Strength</span>
 <button data-action="deleteItem" data-item-id="{{item._id}}">Delete</button>
 ```
+
+`close`, `tab`, and `toggleControls` are reserved action names handled by the framework. Actions with no registered handler fall through to `_onClickAction(event, target)`, which you may override as a catch-all.
 
 ## Form Handling
 
@@ -193,8 +206,10 @@ static DEFAULT_OPTIONS = {
   tag: 'form',
   form: { submitOnChange: true }
 }
-// No handler needed — ActorSheetV2/ItemSheetV2 handle updates automatically
+// No handler needed — DocumentSheetV2 updates the document
 ```
+
+The submit pipeline is `_onSubmitForm` → `_prepareSubmitData` → `_processFormData` → `_processSubmitData`. `_processFormData` returns `foundry.utils.expandObject(formData.object)`; override it to reshape that expanded object, and override `_processSubmitData(event, form, submitData, options)` to run work after the document update.
 
 ### Pattern 2: Explicit Submit (Dialogs)
 
@@ -215,76 +230,81 @@ static DEFAULT_OPTIONS = {
  * @param {FormDataExtended} formData
  */
 static async #onSubmitForm(event, form, formData) {
-  event.preventDefault()
   await this.options.document.update(formData.object)
 }
 ```
 
-**Template requirement**: When using `tag: 'form'`, templates must NOT contain `<form>` elements:
+**Template requirement**: with `tag: 'form'` the application root *is* the form. Templates must not contain their own `<form>`:
 
 ```html
-<!-- WRONG: Nested forms are invalid HTML -->
+<!-- WRONG: nested forms are invalid HTML -->
 <form class="config-dialog">...</form>
 
-<!-- CORRECT: Use section or div -->
+<!-- CORRECT -->
 <section class="config-dialog">...</section>
 ```
 
 ## Tab System
 
-### Configuration
+Declare tabs in `static TABS`, keyed by group id. `group` is filled in for you; `labelPrefix` saves repeating the i18n path.
 
 ```javascript
 static TABS = {
   sheet: {
     tabs: [
-      { id: 'character', group: 'sheet', label: 'MY_SYSTEM.Character' },
-      { id: 'equipment', group: 'sheet', label: 'MY_SYSTEM.Equipment' },
-      { id: 'notes', group: 'sheet', label: 'MY_SYSTEM.Notes' }
+      { id: 'character', icon: 'fa-solid fa-user' },
+      { id: 'equipment', icon: 'fa-solid fa-sack' },
+      { id: 'notes',     icon: 'fa-solid fa-book' }
     ],
-    initial: 'character'
+    initial: 'character',
+    labelPrefix: 'MY_SYSTEM.TABS'   // -> MY_SYSTEM.TABS.character, …
   }
 }
 
 static PARTS = {
-  tabs: { template: 'systems/my-system/templates/partial-tabs.html' },
-  character: { template: 'systems/my-system/templates/partial-character.html' },
-  equipment: { template: 'systems/my-system/templates/partial-equipment.html' },
-  notes: { template: 'systems/my-system/templates/partial-notes.html' }
+  tabs:      { template: 'templates/generic/tab-navigation.hbs' },
+  character: { template: 'systems/my-system/templates/tab-character.hbs' },
+  equipment: { template: 'systems/my-system/templates/tab-equipment.hbs' },
+  notes:     { template: 'systems/my-system/templates/tab-notes.hbs' }
 }
 ```
 
-### Tab Navigation Template
+**`context.tabs` is a record keyed by tab id**, not an array — `context.tabs.character` is `{ id, group, active, cssClass, label, icon }`. With exactly one tab group, `ApplicationV2._prepareContext` populates it automatically; with several groups call `this._prepareTabs('groupId')` yourself.
+
+### Tab Navigation
+
+Easiest path is the core partial `templates/generic/tab-navigation.hbs`, which renders `context.tabs` and honours an optional `tabClasses` (e.g. `"top-tabs"`) and `verticalTabs`. Rolling your own, the critical bit is **`data-action="tab"`** — tab switching is a framework action, not a CSS-class listener:
 
 ```html
-<nav class="tabs sheet-tabs" data-group="{{tabs.sheet.group}}">
-  {{#each tabs.sheet.tabs}}
-    <a class="tab {{this.cssClass}}" data-tab="{{this.id}}" data-group="{{this.group}}">
-      {{localize this.label}}
+<nav class="tabs sheet-tabs" aria-roledescription="{{localize 'SHEETS.FormNavLabel'}}">
+  {{#each tabs as |tab|}}
+    <a data-action="tab" data-group="{{tab.group}}" data-tab="{{tab.id}}"
+       class="{{tab.cssClass}}">
+      {{#if tab.icon}}<i class="{{tab.icon}}" inert></i>{{/if}}
+      {{#if tab.label}}<span>{{localize tab.label}}</span>{{/if}}
     </a>
   {{/each}}
 </nav>
 ```
 
-### Tab Content Template
+### Tab Content
 
-Each tab template must have exactly one root element with proper attributes:
+Each tab part needs exactly one root element carrying `data-tab`, `data-group`, and the tab's `cssClass` (that is what carries `active`):
 
 ```html
-<section class="tab {{tabs.character.id}} {{tabs.character.cssClass}}"
-         data-tab="{{tabs.character.id}}"
-         data-group="{{tabs.character.group}}">
-  <!-- Tab content -->
+<section class="tab {{tab.id}} {{tab.cssClass}}"
+         data-tab="{{tab.id}}" data-group="{{tab.group}}">
+  <!-- content -->
 </section>
 ```
 
-**CSS Warning**: If parent elements have `display: grid` or `display: flex`, ALL tabs will be visible at once. Apply layout styles to inner elements, not tab containers.
+(`{{tab}}` comes from the `if (partId in partContext.tabs) partContext.tab = partContext.tabs[partId]` line in `_preparePartContext`; without it, address the record directly as `{{tabs.character.cssClass}}`.)
+
+**CSS warning**: if an ancestor is `display: grid` or `display: flex`, every tab shows at once. Put layout styles on inner elements, not on the tab container.
 
 ## Drag and Drop
 
 ### ActorSheetV2 (Automatic)
-
-ActorSheetV2 provides automatic drag/drop for items and effects. Just add the right attributes:
 
 ```html
 <li class="item draggable" data-item-id="{{item._id}}">{{item.name}}</li>
@@ -293,34 +313,29 @@ ActorSheetV2 provides automatic drag/drop for items and effects. Just add the ri
 
 ### ApplicationV2 (Manual Setup)
 
-For non-actor apps, set up drag/drop manually. See **`references/appv2-patterns.md`** for the full pattern.
+Non-document apps wire `foundry.applications.ux.DragDrop` themselves — full pattern in **`references/appv2-patterns.md`**.
 
 ## Image Editing
 
-Use the inherited `editImage` method from DocumentSheetV2:
-
 ```javascript
 static DEFAULT_OPTIONS = {
-  actions: {
-    editImage: MySheetClass.editImage  // Inherited static method
-  }
+  actions: { editImage: MySheetClass.editImage }   // inherited from DocumentSheetV2
 }
 ```
 
 ```html
-<img src="{{img}}" data-action="editImage" data-edit="img" alt="Portrait">
+<img src="{{document.img}}" data-action="editImage" data-edit="img" alt="Portrait">
 ```
 
 ## ProseMirror Editor
 
+TinyMCE was **removed entirely in V14**; ProseMirror is the only bundled editor. The `{{editor}}` Handlebars helper and the `<prose-mirror>` element both remain, but new code should use the element:
+
 ```html
 {{#if editable}}
-  <prose-mirror
-    name="system.description"
-    button="true"
-    editable="{{editable}}"
-    toggled="false"
-    value="{{system.description}}">
+  <prose-mirror name="system.description" button="true"
+                editable="{{editable}}" toggled="false"
+                value="{{system.description}}">
     {{{descriptionHTML}}}
   </prose-mirror>
 {{else}}
@@ -328,20 +343,32 @@ static DEFAULT_OPTIONS = {
 {{/if}}
 ```
 
-## Sheet Registration
+Building plugins: `foundry.prosemirror.defaultPlugins` is deprecated — use `foundry.applications.ux.ProseMirrorEditor.buildDefaultPlugins()`.
 
-All systems must explicitly register sheets in the `init` hook:
+## Detached (Pop-Out) Windows — New in V14
+
+Any framed ApplicationV2 can be torn off into a separate browser window. The header buttons come free; the hooks let you opt out or react:
+
+```javascript
+render({ window: { detached: true } })   // open detached programmatically
+
+_canDetach() { return super._canDetach() && !this.actor.pack }   // veto
+_onDetach(from, to) { /* re-bind anything tied to the old document */ }
+_onAttach(from, to) { }
+```
+
+Anything you cached against `document` / `window` globals at render time must be re-derived from `this.element.ownerDocument` — a detached app lives in a different document. Child apps opened from a detached parent should use `this.renderChild(app)` so they follow it.
+
+## Sheet Registration
 
 ```javascript
 Hooks.once('init', () => {
   const { Actors, Items } = foundry.documents.collections
   const { ActorSheetV2, ItemSheetV2 } = foundry.applications.sheets
 
-  // Unregister core sheets
   Actors.unregisterSheet('core', ActorSheetV2)
   Items.unregisterSheet('core', ItemSheetV2)
 
-  // Register system sheets
   Actors.registerSheet('my-system', MyActorSheet, {
     types: ['character'],
     makeDefault: true,
@@ -357,25 +384,31 @@ Hooks.once('init', () => {
 
 ## Constructor Pattern
 
-ApplicationV2 takes ALL parameters in a single options object:
+ApplicationV2 takes a single options object:
 
 ```javascript
-// V1 (WRONG for V2)
-new MyConfig(this.actor, { position: { ... } })
+// V1 style — wrong
+new MyConfig(this.actor, { position: { … } })
 
-// V2 (CORRECT)
-new MyConfig({
-  document: this.actor,
-  position: { ... }
-})
+// V2
+new MyConfig({ document: this.actor, position: { … } })
 ```
+
+## Removed Handlebars Helpers
+
+V14 removed two long-deprecated helpers. The full registered set is `checked`, `disabled`, `concat`, `editor`, `formInput`, `formGroup`/`formField`, `filePicker`, `ifThen`, `localize`, `numberFormat`, `numberInput`, `object`, `radioBoxes`, `rangePicker`, `selectOptions`, `timeSince`, plus comparison helpers (`eq ne lt gt lte gte not and or`).
+
+| Removed | Use instead |
+|---------|-------------|
+| `{{select}}` | `{{selectOptions}}` |
+| `{{colorPicker}}` | the `<color-picker>` element |
 
 ## CSS Theming
 
-V13 introduces CSS layers. Create a `variables.css` with a `system-` prefix for custom properties:
+Declare a `system-`prefixed variable set, in light **and** dark:
 
 ```css
-:root {
+:root, .theme-light {
   --system-primary-color: #1c1c1c;
   --system-background-color: #ffffff;
   --system-border-color: #cccccc;
@@ -388,7 +421,6 @@ V13 introduces CSS layers. Create a `variables.css` with a `system-` prefix for 
 }
 ```
 
-Register in `system.json`:
 ```json
 {
   "styles": [
@@ -398,8 +430,18 @@ Register in `system.json`:
 }
 ```
 
+### Two V14 traps worth knowing
+
+**1. Legacy core variables no longer resolve.** Foundry declares `--color-text-dark-*`, `--color-border-light-*`, `--color-text-hyperlink` and friends only under `body.game .app`. V14 has no AppV1 windows, so nothing in a running world matches `.app` and every `var()` referencing those names resolves to nothing. The failure is silent and asymmetric: inherited properties like `color` compute to `inherit` (usually still legible), while `border` / `outline` / `background` shorthands render **nothing at all**. Verify in a live world rather than trusting the name:
+
+```js
+getComputedStyle(document.querySelector('.my-system.sheet'))
+  .getPropertyValue('--color-text-dark-secondary')   // '' → does not resolve
+```
+
+**2. Chat re-establishes the light theme.** Foundry stamps `themed theme-light` on `ol.chat-log`, so a variable declared under `:root, .theme-light` / `.theme-dark` resolves to its *light* value inside chat regardless of the active theme. Anything rendered into a chat message needs names declared on `body` alone (e.g. `--chat-border-color`), and those must be literal values — `var(--system-…)` indirection is substituted at use site and resolves light again.
+
 ## Additional Resources
 
-### Reference Files
-- **`references/appv2-migration.md`** — Complete V12-to-V13 migration reference: breaking changes, method-by-method mapping, hook renames, namespace changes
-- **`references/appv2-patterns.md`** — Code patterns with complete examples: actor sheets, item sheets, dialogs, inline item editing, multi-tab sheets, manual drag-drop, form submission
+- **`references/appv2-migration.md`** — V13→V14 and V12→V13 migration: breaking changes, method mapping, hook renames, namespace changes, checklists
+- **`references/appv2-patterns.md`** — complete examples: actor/item sheets, dialogs, DialogV2 helpers, inline item editing, multi-tab sheets, manual drag-drop, detached windows

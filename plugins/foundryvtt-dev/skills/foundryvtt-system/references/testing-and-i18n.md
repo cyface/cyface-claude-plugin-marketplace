@@ -1,6 +1,6 @@
 # Testing and Internationalization Reference
 
-Complete reference for testing FoundryVTT systems with Vitest and implementing internationalization.
+Complete reference for testing FoundryVTT systems with Vitest and implementing internationalization. Targets **V14** (Node 24).
 
 ## Testing with Vitest
 
@@ -28,9 +28,12 @@ export default defineConfig({
     "test:watch": "vitest watch",
     "test:coverage": "vitest run --coverage"
   },
+  "engines": {
+    "node": ">=24.13.1 <25"
+  },
   "devDependencies": {
-    "vitest": "^2.0.0",
-    "@vitest/coverage-v8": "^2.0.0"
+    "vitest": "^4.0.0",
+    "@vitest/coverage-v8": "^4.0.0"
   }
 }
 ```
@@ -70,17 +73,39 @@ global.CONFIG = {
   }
 }
 
-// Mock CONST
+// Mock CONST — V14 uses string change types, not numeric modes
 global.CONST = {
-  ACTIVE_EFFECT_MODES: {
-    ADD: 2,
-    MULTIPLY: 1,
-    OVERRIDE: 5
-  }
+  ACTIVE_EFFECT_CHANGE_TYPES: {
+    custom: 0,
+    multiply: 10,
+    add: 20,
+    subtract: 20,
+    downgrade: 30,
+    upgrade: 40,
+    override: 50
+  },
+  ACTIVE_EFFECT_CHANGE_PHASES: ['initial', 'final']
 }
+
+// V14 global shorthand for game.i18n.localize
+global._loc = (key) => key
 
 // Mock foundry utilities
 global.foundry = {
+  abstract: {
+    TypeDataModel: class TypeDataModel {
+      static defineSchema() { return {} }
+      static migrateData(source) { return source }
+    }
+  },
+  data: {
+    fields: new Proxy({}, {
+      // Field constructors only need to record their options in unit tests
+      get: () => class MockField {
+        constructor(options = {}) { this.options = options }
+      }
+    })
+  },
   utils: {
     mergeObject: (target, source) => Object.assign({}, target, source),
     expandObject: (obj) => {
@@ -154,8 +179,14 @@ global.Actor = class Actor {
     this.prepareDerivedData()
   }
 
-  prepareBaseData() {}
+  prepareBaseData() {
+    // V14: core clears effect phase tracking here — real overrides must call super
+    this._completedActiveEffectPhases = new Set()
+  }
+
   prepareDerivedData() {}
+
+  allApplicableEffects() { return [] }
 }
 
 // Mock Item base class
@@ -300,6 +331,39 @@ it('should handle high-level character', () => {
 })
 ```
 
+### Testing a TypeDataModel
+
+Data models are the easiest part of a V14 system to unit-test, because `defineSchema` and
+`migrateData` are pure static functions:
+
+```javascript
+import { WeaponData } from '../data/item/weapon-data.mjs'
+
+describe('WeaponData.migrateData', () => {
+  it('lifts a legacy string damage into the new schema shape', () => {
+    const source = { damage: '1d8' }
+    WeaponData.migrateData(source)
+    expect(source.damage).toEqual({ formula: '1d8', type: 'physical' })
+  })
+
+  it('is idempotent — running twice does not re-wrap', () => {
+    const source = { damage: '1d8' }
+    WeaponData.migrateData(source)
+    WeaponData.migrateData(source)
+    expect(source.damage).toEqual({ formula: '1d8', type: 'physical' })
+  })
+
+  it('leaves a partial-update diff alone', () => {
+    const source = { equipped: true }
+    WeaponData.migrateData(source)
+    expect(source).toEqual({ equipped: true })   // no damage key invented
+  })
+})
+```
+
+That last case matters: Foundry persists the cleaned diff of a partial update, so a
+migration that helpfully backfills a missing field will wipe the stored value on disk.
+
 ### Coverage Goals
 
 | Category | Target | Rationale |
@@ -382,6 +446,9 @@ const message = game.i18n.format('MY_SYSTEM.RollResult', {
 // Check if key exists
 const hasKey = game.i18n.has('MY_SYSTEM.SomeKey')
 
+// V14 adds a bound global shorthand for localize
+const short = _loc('MY_SYSTEM.AbilityStr')
+
 // For window titles in DEFAULT_OPTIONS, just use the key string
 // Foundry automatically localizes it
 static DEFAULT_OPTIONS = {
@@ -421,6 +488,8 @@ static DEFAULT_OPTIONS = {
 ### Best Practices
 
 **Do:**
+- Pass raw i18n keys to Foundry APIs that localize for you — window titles in
+  `DEFAULT_OPTIONS`, and (as of V14) context-menu entry `label` fields
 - Use descriptive key names that indicate context
 - Group related keys under common prefixes
 - Keep translations consistent in tone and terminology

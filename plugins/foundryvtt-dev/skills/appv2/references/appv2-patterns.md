@@ -1,6 +1,6 @@
 # ApplicationV2 Code Patterns
 
-Complete code examples for common FoundryVTT V13 ApplicationV2 patterns.
+Complete code examples for common FoundryVTT **V14** ApplicationV2 patterns. Last-verified build: see the plugin README. These patterns also work on V13 except where a V14 note says otherwise.
 
 ## Complete Actor Sheet Example
 
@@ -39,34 +39,35 @@ class MyActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   static TABS = {
     sheet: {
       tabs: [
-        { id: 'attributes', group: 'sheet', label: 'MY_SYSTEM.Attributes' },
-        { id: 'inventory', group: 'sheet', label: 'MY_SYSTEM.Inventory' },
-        { id: 'spells', group: 'sheet', label: 'MY_SYSTEM.Spells' },
-        { id: 'biography', group: 'sheet', label: 'MY_SYSTEM.Biography' }
+        { id: 'attributes', icon: 'fa-solid fa-dice-d20' },
+        { id: 'inventory', icon: 'fa-solid fa-sack' },
+        { id: 'spells', icon: 'fa-solid fa-wand-sparkles' },
+        { id: 'biography', icon: 'fa-solid fa-book' }
       ],
-      initial: 'attributes'
+      initial: 'attributes',
+      labelPrefix: 'MY_SYSTEM.TABS'   // -> MY_SYSTEM.TABS.attributes, ...
     }
   }
 
   /** @inheritDoc */
   static PARTS = {
     header: {
-      template: 'systems/my-system/templates/actor/header.html'
+      template: 'systems/my-system/templates/actor/header.hbs'
     },
     tabs: {
-      template: 'systems/my-system/templates/actor/tabs-nav.html'
+      template: 'templates/generic/tab-navigation.hbs'   // core partial
     },
     attributes: {
-      template: 'systems/my-system/templates/actor/tab-attributes.html'
+      template: 'systems/my-system/templates/actor/tab-attributes.hbs'
     },
     inventory: {
-      template: 'systems/my-system/templates/actor/tab-inventory.html'
+      template: 'systems/my-system/templates/actor/tab-inventory.hbs'
     },
     spells: {
-      template: 'systems/my-system/templates/actor/tab-spells.html'
+      template: 'systems/my-system/templates/actor/tab-spells.hbs'
     },
     biography: {
-      template: 'systems/my-system/templates/actor/tab-biography.html'
+      template: 'systems/my-system/templates/actor/tab-biography.hbs'
     }
   }
 
@@ -92,6 +93,15 @@ class MyActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     )
 
     return context
+  }
+
+  /** @inheritDoc */
+  async _preparePartContext(partId, context, options) {
+    const partContext = await super._preparePartContext(partId, context, options)
+    // Expose the current tab as {{tab}} inside tab parts
+    if (partId in partContext.tabs) partContext.tab = partContext.tabs[partId]
+    if (partId === 'tabs') partContext.tabClasses = 'top-tabs'
+    return partContext
   }
 
   /**
@@ -156,7 +166,7 @@ class MyActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
 
 ### Actor Sheet Templates
 
-**Header template (`actor/header.html`):**
+**Header template (`actor/header.hbs`):**
 ```html
 <header class="sheet-header">
   <img src="{{actor.img}}" data-action="editImage" data-edit="img" alt="Portrait" class="profile-img">
@@ -170,18 +180,21 @@ class MyActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
 </header>
 ```
 
-**Tab navigation template (`actor/tabs-nav.html`):**
+**Tab navigation.** Prefer the core partial `templates/generic/tab-navigation.hbs`, which renders `context.tabs` for you. If you write your own, `context.tabs` is a **record keyed by tab id** (not an array) and the nav links must carry `data-action="tab"` — tab switching is a framework action, not a CSS-class listener:
+
 ```html
-<nav class="tabs sheet-tabs" data-group="{{tabs.sheet.group}}">
-  {{#each tabs.sheet.tabs}}
-    <a class="tab {{this.cssClass}}" data-tab="{{this.id}}" data-group="{{this.group}}">
-      {{localize this.label}}
+<nav class="tabs sheet-tabs" aria-roledescription="{{localize 'SHEETS.FormNavLabel'}}">
+  {{#each tabs as |tab|}}
+    <a data-action="tab" data-group="{{tab.group}}" data-tab="{{tab.id}}"
+       class="{{tab.cssClass}}">
+      {{#if tab.icon}}<i class="{{tab.icon}}" inert></i>{{/if}}
+      {{#if tab.label}}<span>{{localize tab.label}}</span>{{/if}}
     </a>
   {{/each}}
 </nav>
 ```
 
-**Tab content template (`actor/tab-attributes.html`):**
+**Tab content template (`actor/tab-attributes.hbs`):**
 ```html
 <section class="tab {{tabs.attributes.id}} {{tabs.attributes.cssClass}}"
          data-tab="{{tabs.attributes.id}}"
@@ -200,7 +213,7 @@ class MyActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
 </section>
 ```
 
-**Inventory tab template (`actor/tab-inventory.html`):**
+**Inventory tab template (`actor/tab-inventory.hbs`):**
 ```html
 <section class="tab {{tabs.inventory.id}} {{tabs.inventory.cssClass}}"
          data-tab="{{tabs.inventory.id}}"
@@ -208,7 +221,7 @@ class MyActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   <div class="item-header">
     <h3>{{localize "MY_SYSTEM.Weapons"}}</h3>
     <button data-action="itemCreate" data-type="weapon">
-      <i class="fas fa-plus"></i> {{localize "MY_SYSTEM.Add"}}
+      <i class="fa-solid fa-plus"></i> {{localize "MY_SYSTEM.Add"}}
     </button>
   </div>
   <ol class="item-list">
@@ -217,14 +230,14 @@ class MyActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         <img src="{{this.img}}" alt="{{this.name}}" width="24" height="24">
         <span class="item-name" data-action="itemEdit">{{this.name}}</span>
         <span class="item-detail">{{this.system.damage}}</span>
-        <button data-action="itemDelete"><i class="fas fa-trash"></i></button>
+        <button data-action="itemDelete"><i class="fa-solid fa-trash"></i></button>
       </li>
     {{/each}}
   </ol>
 </section>
 ```
 
-**Biography tab template (`actor/tab-biography.html`):**
+**Biography tab template (`actor/tab-biography.hbs`):**
 ```html
 <section class="tab {{tabs.biography.id}} {{tabs.biography.cssClass}}"
          data-tab="{{tabs.biography.id}}"
@@ -275,26 +288,27 @@ class MyItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
   static TABS = {
     sheet: {
       tabs: [
-        { id: 'details', group: 'sheet', label: 'MY_SYSTEM.Details' },
-        { id: 'description', group: 'sheet', label: 'MY_SYSTEM.Description' }
+        { id: 'details', icon: 'fa-solid fa-list' },
+        { id: 'description', icon: 'fa-solid fa-book' }
       ],
-      initial: 'details'
+      initial: 'details',
+      labelPrefix: 'MY_SYSTEM.TABS'
     }
   }
 
   /** @inheritDoc */
   static PARTS = {
     header: {
-      template: 'systems/my-system/templates/item/header.html'
+      template: 'systems/my-system/templates/item/header.hbs'
     },
     tabs: {
-      template: 'systems/my-system/templates/item/tabs-nav.html'
+      template: 'templates/generic/tab-navigation.hbs'
     },
     details: {
-      template: 'systems/my-system/templates/item/tab-details.html'
+      template: 'systems/my-system/templates/item/tab-details.hbs'
     },
     description: {
-      template: 'systems/my-system/templates/item/tab-description.html'
+      template: 'systems/my-system/templates/item/tab-description.hbs'
     }
   }
 
@@ -347,15 +361,15 @@ class MyConfigDialog extends HandlebarsApplicationMixin(ApplicationV2) {
   /** @inheritDoc */
   static PARTS = {
     form: {
-      template: 'systems/my-system/templates/dialog-config.html'
+      template: 'systems/my-system/templates/dialog-config.hbs'
     }
   }
 
   /** @inheritDoc */
   async _prepareContext(options) {
     const context = await super._prepareContext(options)
-    const document = this.options.document
-    context.system = document.system
+    const doc = this.options.document
+    context.system = doc.system
     context.config = CONFIG.MY_SYSTEM
     return context
   }
@@ -383,12 +397,23 @@ new MyConfigDialog({ document: someActor }).render(true)
 // Simple confirmation
 const confirmed = await foundry.applications.api.DialogV2.confirm({
   window: { title: 'MY_SYSTEM.ConfirmDelete' },
-  content: `<p>${game.i18n.localize('MY_SYSTEM.ConfirmDeleteMessage')}</p>`,
-  yes: { callback: () => true },
-  no: { callback: () => false }
+  content: `<p>${game.i18n.localize('MY_SYSTEM.ConfirmDeleteMessage')}</p>`
 })
+// Resolves to true / false (or null if dismissed) — no callbacks needed
 
-// Input prompt
+// Form input prompt — DialogV2.input returns the form data object directly
+const data = await foundry.applications.api.DialogV2.input({
+  window: { title: 'MY_SYSTEM.EnterValue' },
+  content: `
+    <div class="form-group">
+      <label>${game.i18n.localize('MY_SYSTEM.Value')}</label>
+      <input type="number" name="value" value="0">
+    </div>
+  `
+})
+// data?.value — null if the dialog was dismissed
+
+// Custom prompt with an explicit callback
 const result = await foundry.applications.api.DialogV2.prompt({
   window: { title: 'MY_SYSTEM.EnterValue' },
   content: `
@@ -431,25 +456,21 @@ When editing item properties directly on an actor sheet (like equip checkboxes o
 class MyActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   /** @override */
   _processFormData(event, form, formData) {
-    // Extract raw form data BEFORE validation strips items
-    const expanded = foundry.utils.expandObject(formData.object)
-
-    if (expanded.items) {
-      this._pendingItemUpdates = Object.entries(expanded.items).map(([id, itemData]) => ({
-        _id: id,
-        ...itemData
-      }))
+    // super returns foundry.utils.expandObject(formData.object), so `items.<id>.…` arrives as submitData.items[id]
+    const submitData = super._processFormData(event, form, formData)
+    if (submitData.items) {
+      this._pendingItemUpdates = Object.entries(submitData.items).map(([_id, data]) => ({ _id, ...data }))
+      delete submitData.items   // never hand an `items` object to actor.update()
     }
-
-    return super._processFormData(event, form, formData)
+    return submitData
   }
 
   /** @override */
-  async _processSubmitData(event, form, formData) {
-    const result = await super._processSubmitData(event, form, formData)
+  async _processSubmitData(event, form, submitData, options) {
+    const result = await super._processSubmitData(event, form, submitData, options)
 
-    // Apply pending item updates after actor update
-    if (this._pendingItemUpdates?.length > 0) {
+    // Apply pending item updates after the actor update
+    if (this._pendingItemUpdates?.length) {
       await this.document.updateEmbeddedDocuments('Item', this._pendingItemUpdates)
       delete this._pendingItemUpdates
     }
@@ -460,10 +481,10 @@ class MyActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
 ```
 
 **Key points:**
-- Use `items.{{id}}.property` naming convention in templates
-- Override `_processFormData` to intercept item data before form validation
-- Override `_processSubmitData` to apply item updates after the main actor update
-- Clean up temporary storage after updates complete
+- Use the `items.{{id}}.property` naming convention in templates
+- Override `_processFormData` to pull the item data out of the expanded submit object and **remove it** before the actor update
+- Override `_processSubmitData` (four parameters in V14: `event, form, submitData, options`) to apply the item updates after the actor update
+- Clean up the temporary storage after the updates complete
 
 ## Manual Drag and Drop Setup
 
@@ -498,11 +519,13 @@ class MyApp extends HandlebarsApplicationMixin(ApplicationV2) {
         dragover: this._onDragOver.bind(this),
         drop: this._onDrop.bind(this)
       }
-      return new DragDrop(d)
+      return new DragDrop.implementation(d)
     })
   }
 
-  _onRender(context, options) {
+  /** @override */
+  async _onRender(context, options) {
+    await super._onRender(context, options)
     this.#dragDrop.forEach((d) => d.bind(this.element))
   }
 
@@ -555,101 +578,64 @@ class MyActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   static TABS = {
     sheet: {
       tabs: [
-        { id: 'attributes', group: 'sheet', label: 'MY_SYSTEM.Attributes' },
-        { id: 'inventory', group: 'sheet', label: 'MY_SYSTEM.Inventory' }
+        { id: 'attributes', icon: 'fa-solid fa-dice-d20' },
+        { id: 'inventory', icon: 'fa-solid fa-sack' }
       ],
-      initial: 'attributes'
+      initial: 'attributes',
+      labelPrefix: 'MY_SYSTEM.TABS'
     }
   }
 
+  /** @override */
   _getTabsConfig(group) {
-    const tabs = foundry.utils.deepClone(super._getTabsConfig(group))
+    const config = foundry.utils.deepClone(super._getTabsConfig(group))
 
     // Add spells tab only for spellcaster types
     if (this.document.type === 'spellcaster') {
-      tabs.tabs.push({ id: 'spells', group: 'sheet', label: 'MY_SYSTEM.Spells' })
+      config.tabs.push({ id: 'spells', icon: 'fa-solid fa-wand-sparkles' })
     }
 
-    return tabs
+    return config
   }
 }
 ```
 
 ## Hybrid Drag and Drop (ActorSheetV2 + Custom Types)
 
-When you need ActorSheetV2's automatic item handling plus custom drag types:
+When you need ActorSheetV2's automatic item handling plus custom drag types, **do not create a second `DragDrop`**. ActorSheetV2 already binds one to `.draggable` in `_onRender`, with its callbacks bound to *your* `_onDragStart` and `_onDrop`. A second instance with a drop selector would handle every drop twice. Override the methods instead:
 
 ```javascript
 class MyActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
-  #dragDrop
-
-  static DEFAULT_OPTIONS = {
-    dragDrop: [{
-      dragSelector: '[data-drag="true"]',
-      dropSelector: '.my-system.actor'
-    }]
-  }
-
-  constructor(options = {}) {
-    super(options)
-    this.#dragDrop = this.#createDragDropHandlers()
-  }
-
-  #createDragDropHandlers() {
-    return this.options.dragDrop.map((d) => {
-      d.permissions = {
-        dragstart: this._canDragStart.bind(this),
-        drop: this._canDragDrop.bind(this)
-      }
-      d.callbacks = {
-        dragstart: this._onDragStart.bind(this),
-        dragover: this._onDragOver.bind(this),
-        drop: this._onDrop.bind(this)
-      }
-      return new foundry.applications.ux.DragDrop(d)
-    })
-  }
-
-  _onRender(context, options) {
-    this.#dragDrop.forEach((d) => d.bind(this.element))
-  }
-
-  _onDragStart(event) {
+  /** @override */
+  async _onDragStart(event) {
     const element = event.currentTarget
-    if (!element.dataset.drag) return
 
-    const dragAction = element.dataset.dragAction
-    let dragData = null
-
-    switch (dragAction) {
-      case 'ability': {
-        const abilityId = element.dataset.ability
-        dragData = {
-          type: 'Ability',
-          actorId: this.actor.id,
-          data: { abilityId }
-        }
-        break
+    // Custom drag types
+    if (element.dataset.dragAction === 'ability') {
+      const dragData = {
+        type: 'Ability',
+        actorId: this.actor.id,
+        data: { abilityId: element.dataset.ability }
       }
-      default: {
-        // Fall back to standard item drag
-        const itemId = element.dataset.itemId
-        const item = this.actor.items.get(itemId)
-        if (item) dragData = item.toDragData()
-        break
-      }
-    }
-
-    if (dragData) {
       event.dataTransfer.setData('text/plain', JSON.stringify(dragData))
+      return
     }
+
+    // Everything else (items, effects) — core handles [data-item-id] / [data-effect-id]
+    return super._onDragStart(event)
   }
 
-  _onDrop(event) {
+  /** @override */
+  async _onDrop(event) {
     const data = foundry.applications.ux.TextEditor.getDragEventData(event)
-    if (!data) return false
-    // Delegate to ActorSheetV2 built-in handling
-    return super._onDrop?.(event)
+
+    if (data?.type === 'Ability') {
+      // Handle the custom type here
+      return
+    }
+
+    // Delegate Item / ActiveEffect / Actor drops to ActorSheetV2
+    return super._onDrop(event)
   }
 }
 ```
@@ -659,8 +645,8 @@ class MyActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
 <!-- Standard items — automatic ActorSheetV2 handling -->
 <li class="item draggable" data-item-id="{{item._id}}">{{item.name}}</li>
 
-<!-- Custom drag types — manual handling -->
-<span data-drag="true" data-drag-action="ability" data-ability="str">Strength</span>
+<!-- Custom drag types — same `draggable` class, branch on a data attribute -->
+<span class="draggable" data-drag-action="ability" data-ability="str">Strength</span>
 ```
 
 ## Complete Dialog Migration Example
@@ -670,7 +656,7 @@ class MyActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
 class MyActorConfig extends FormApplication {
   static get defaultOptions() {
     const options = super.defaultOptions
-    options.template = 'systems/my-system/templates/dialog-config.html'
+    options.template = 'systems/my-system/templates/dialog-config.hbs'
     options.width = 380
     return options
   }
@@ -691,7 +677,7 @@ class MyActorConfig extends FormApplication {
 }
 ```
 
-### After (V13)
+### After (V13/V14)
 ```javascript
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api
 
@@ -713,7 +699,7 @@ class MyActorConfig extends HandlebarsApplicationMixin(ApplicationV2) {
 
   static PARTS = {
     form: {
-      template: 'systems/my-system/templates/dialog-config.html'
+      template: 'systems/my-system/templates/dialog-config.hbs'
     }
   }
 
@@ -736,3 +722,74 @@ class MyActorConfig extends HandlebarsApplicationMixin(ApplicationV2) {
 // Usage — note single options object
 new MyActorConfig({ document: someActor }).render(true)
 ```
+
+
+## Detached (Pop-Out) Windows — V14
+
+Every framed ApplicationV2 gets Detach/Attach header buttons for free. Only override the hooks when a sheet has state that cannot survive moving to another browser document.
+
+```javascript
+class MyActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
+  /** @type {ResizeObserver|null} */
+  #observer = null
+
+  /** Refuse to detach compendium sheets */
+  _canDetach() {
+    return super._canDetach() && !this.actor.pack
+  }
+
+  /** Re-derive anything bound to the old document/window */
+  _onDetach(from, to) {
+    super._onDetach(from, to)
+    this.#observer?.disconnect()
+    this.#observer = new ResizeObserver(() => this.#syncLayout())
+    this.#observer.observe(this.element)
+  }
+
+  _onAttach(from, to) {
+    super._onAttach(from, to)
+    this._onDetach(from, to)   // same re-binding work
+  }
+
+  #syncLayout() {
+    // Measure against the element, never against the global window
+    const { width } = this.element.getBoundingClientRect()
+    this.element.classList.toggle('compact', width < 600)
+  }
+
+  /** Child apps opened from a detached sheet should follow it */
+  static async #openConfig(event, target) {
+    this.renderChild(new MyConfigDialog({ document: this.actor }))
+  }
+}
+
+// Open detached programmatically
+actor.sheet.render({ window: { detached: true } })
+```
+
+**Rules of thumb for detach-safe sheets:**
+- Never cache the global `document` or `window` at render time — read `this.element.ownerDocument` / `.defaultView` when you need them.
+- Measure with `this.element.getBoundingClientRect()`, not viewport globals.
+- Anything registered on `document` (listeners, observers, portals) is re-registered in `_onDetach` / `_onAttach`.
+
+## Schema-Driven Form Fields — V14
+
+`DocumentSheetV2._prepareContext` hands you `fields` (the document's schema fields) and `source` (the raw `_source` data). The `formGroup` and `formInput` helpers build labelled, correctly typed inputs from those, so field type changes in the data model propagate to the sheet automatically:
+
+```javascript
+async _prepareContext(options) {
+  const context = await super._prepareContext(options)
+  context.systemFields = this.document.system.schema.fields
+  return context
+}
+```
+
+```html
+{{formGroup systemFields.hp.fields.value value=source.system.hp.value localize=true}}
+{{formGroup systemFields.level value=source.system.level localize=true}}
+
+{{!-- Just the input, no label wrapper --}}
+{{formInput systemFields.notes value=source.system.notes}}
+```
+
+Bind to `source.*`, not the prepared `system.*` — prepared data may contain values derived by Active Effects, and writing those back to the document would bake the effect into the base data.

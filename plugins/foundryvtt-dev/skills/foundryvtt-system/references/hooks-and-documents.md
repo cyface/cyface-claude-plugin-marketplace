@@ -1,17 +1,19 @@
 # Hooks and Documents Reference
 
-Complete reference for FoundryVTT hooks lifecycle, document classes, and core APIs.
+Reference for the FoundryVTT hooks lifecycle, the full document hierarchy, and core APIs. Targets **V14** (last-verified build: see the plugin README).
 
 ## Hooks Lifecycle
 
 ### Initialization Phase
 
 ```
-setup              → Early initialization (before init)
-init               → System initialization (register classes, settings, templates)
-i18nInit           → Localization system ready
-ready              → Game fully loaded, all data available
+init               → System initialization (register classes, data models, settings, sheets, templates)
+i18nInit           → Translations loaded (fires from game.i18n.initialize(), right after init)
+setup              → Game data available, UI about to render (document collections initialized)
+ready              → Game fully loaded; canvas drawn and any scene transition finished
 ```
+
+Order verified in `client/game.mjs`: `init`, then `i18n.initialize()` (fires `i18nInit`), then `setup`, then `ready`. Core UI apps (sidebar, chat, players) first render between `setup` and `ready`, which is why context-menu hooks must already be registered by `init`.
 
 ### Document Lifecycle Hooks
 
@@ -36,19 +38,45 @@ Hooks.on('createActor', (actor, options, userId) => {
 })
 ```
 
-### Render Hooks (V13)
+### Render Hooks
+
+ApplicationV2 fires `render{ClassName}` once per class in the inheritance chain, stopping at
+`ApplicationV2`. So a `MyActorSheet extends HandlebarsApplicationMixin(ActorSheetV2)` render fires
+`renderMyActorSheet`, `renderActorSheetV2`, `renderDocumentSheetV2`, and `renderApplicationV2`.
+`renderApplication` is the **AppV1** hook and never fires for V2 apps.
 
 ```javascript
-// Fires when any application renders
-Hooks.on('renderApplication', (app, html, data) => { })
+// Fires when any ApplicationV2 renders — note the signature: element, not html; context, not data
+Hooks.on('renderApplicationV2', (app, element, context, options) => { })
 
-// Fires for specific application class
-Hooks.on('renderMyActorSheet', (app, html, data) => { })
+// Fires for a specific application class (and each of its V2 ancestors)
+Hooks.on('renderMyActorSheet', (app, element, context, options) => { })
 
-// Chat message HTML (V13 name)
-Hooks.on('renderChatMessageHTML', (message, html, data) => {
-  // html is a DOM element (not jQuery)
+// V14: fires before an ApplicationV2 renders, same per-class pattern (preRenderMyActorSheet … preRenderApplicationV2)
+Hooks.on('preRenderApplicationV2', (app, context, options) => { })
+
+// Chat message HTML (V13+ name; the V12 `renderChatMessage` is gone)
+Hooks.on('renderChatMessageHTML', (message, html) => {
+  // html is a DOM element (not jQuery); core passes no third argument
   const content = html.querySelector('.message-content')
+})
+```
+
+### Context Menu Hooks
+
+`get{DocumentName}ContextOptions` hooks fire **once, at the owning application's first
+render** — not each time the menu opens. Core UI apps first render during boot, before
+`ready`, so registering one of these from `ready` silently does nothing. Register at
+import time or in `init`, and put per-open logic in `visible`.
+
+```javascript
+Hooks.on('getActorContextOptions', (application, entries) => {
+  entries.push({
+    label: 'MY_SYSTEM.QuickLevelUp',      // V14: raw i18n key, core localizes it
+    icon: 'fa-solid fa-arrow-up',         // V14: class name, not <i> HTML
+    visible: el => game.user.isGM,        // V14: was `condition`; evaluated per open
+    onClick: (event, el) => levelUp(el.dataset.entryId)   // V14: was `callback`
+  })
 })
 ```
 
@@ -93,26 +121,54 @@ Hooks.on('hotbarDrop', (bar, data, slot) => {
 
 ## Document Class Hierarchy
 
+All 16 primary (world-level) document types in V14, with the embedded documents each one owns
+(collection name in parentheses). Source: `CONST.PRIMARY_DOCUMENT_TYPES`, `CONST.EMBEDDED_DOCUMENT_TYPES`,
+and each document's `metadata.embedded`.
+
 ```
 Document (Base)
 +-- Actor
+|   +-- Item (items)
+|   |   +-- ActiveEffect (effects)
+|   +-- ActiveEffect (effects)
 +-- Item
+|   +-- ActiveEffect (effects)
++-- Adventure
++-- Cards
+|   +-- Card (cards)
 +-- ChatMessage
 +-- Combat
-+-- Combatant
-+-- Scene
-+-- Token (embedded in Scene)
+|   +-- Combatant (combatants)
+|   +-- CombatantGroup (groups)
++-- FogExploration
++-- Folder
 +-- JournalEntry
-+-- JournalEntryPage
+|   +-- JournalEntryPage (pages)
+|   +-- JournalEntryCategory (categories)
 +-- Macro
 +-- Playlist
-+-- PlaylistSound
+|   +-- PlaylistSound (sounds)
 +-- RollTable
-+-- TableResult
-+-- ActiveEffect (embedded in Actor or Item)
+|   +-- TableResult (results)
++-- Scene
+|   +-- Token (tokens)
+|   |   +-- ActorDelta (delta) — the synthetic actor's overrides; owns its own items and effects
+|   +-- Level (levels) — Scene Levels, new in V14
+|   +-- Region (regions) — replaces MeasuredTemplate in V14
+|   |   +-- RegionBehavior (behaviors)
+|   +-- Tile (tiles)
+|   +-- Wall (walls)
+|   +-- Drawing (drawings)
+|   +-- Note (notes)
+|   +-- AmbientLight (lights)
+|   +-- AmbientSound (sounds)
++-- Setting
 +-- User
-+-- Folder
 ```
+
+`MeasuredTemplate` was **removed in V14** (`MeasuredTemplateDocument` and `Scene#templates` remain as
+deprecated shells until V16); areas of effect are Regions with shapes
+(`circle`, `rectangle`, `ellipse`, `polygon`, `cone`, `ring`, `line`, `emanation`, `token`, `grid`).
 
 ### Custom Document Classes
 
@@ -122,8 +178,16 @@ Register in `init` hook:
 Hooks.once('init', () => {
   CONFIG.Actor.documentClass = MyActor
   CONFIG.Item.documentClass = MyItem
+
+  // V14: subtype schemas come from TypeDataModel classes, not template.json
+  CONFIG.Actor.dataModels = { character: CharacterData, npc: NPCData }
+  CONFIG.Item.dataModels = { weapon: WeaponData, armor: ArmorData }
 })
 ```
+
+Any `prepareBaseData()` override on a document class **must** call
+`super.prepareBaseData()` — V14 resets Active Effect phase tracking there, and skipping
+it throws *"phase has already completed"* on the second preparation cycle.
 
 ### Common Document Operations
 
@@ -177,17 +241,42 @@ await actor.updateEmbeddedDocuments('Item', [
 // Delete embedded item
 await actor.deleteEmbeddedDocuments('Item', [itemId])
 
-// Active Effects
+// Active Effects — V14 shape: changes live in system data with string types
 await actor.createEmbeddedDocuments('ActiveEffect', [{
   name: 'Blessed',
-  icon: 'icons/svg/aura.svg',
-  changes: [{
-    key: 'system.abilities.str.value',
-    mode: CONST.ACTIVE_EFFECT_MODES.ADD,
-    value: '2'
-  }]
+  img: 'icons/svg/aura.svg',
+  system: {
+    changes: [{
+      key: 'system.abilities.str.value',
+      type: 'add',          // was: mode: CONST.ACTIVE_EFFECT_MODES.ADD
+      value: 2,
+      phase: 'initial'      // 'initial' (base values) or 'final' (derived values)
+    }]
+  }
 }])
+
+// Reading effects
+for (const effect of actor.allApplicableEffects()) {
+  for (const change of effect.system?.changes ?? []) {
+    if (change.type === 'add') { /* … */ }
+  }
+}
 ```
+
+### Batched Modifications (V14)
+
+When multiple writes must not be interleaved with network latency, or must succeed or
+fail together:
+
+```javascript
+await foundry.documents.modifyBatch([
+  { action: 'update', documentName: 'Actor', updates: [{ _id: actor.id, 'system.size': 'large' }] },
+  { action: 'update', documentName: 'Token', updates: [{ _id: tokenId, width: 2, height: 2 }], parent: scene }
+])
+```
+
+A batch cannot reference the result of an earlier operation within the same batch, and
+any cancellation or exception rolls the whole batch back.
 
 ## Game Object
 
@@ -216,8 +305,8 @@ game.packs              // All compendium packs
 // Utilities
 game.i18n.localize('KEY')           // Translate a key
 game.i18n.format('KEY', { data })   // Translate with interpolation
-game.settings.get('system', 'key')  // Read a setting
-game.settings.set('system', 'key', value)  // Write a setting
+game.settings.get('my-system', 'key')  // Read a setting (namespace = your system/module id)
+game.settings.set('my-system', 'key', value)  // Write a setting
 ```
 
 ## Settings API
@@ -272,7 +361,7 @@ Hooks.once('init', () => {
   game.settings.registerMenu('my-system', 'advancedConfig', {
     name: 'MY_SYSTEM.Settings.AdvancedConfig',
     label: 'MY_SYSTEM.Settings.Configure',
-    icon: 'fas fa-cogs',
+    icon: 'fa-solid fa-gears',
     type: MyAdvancedConfigApp,
     restricted: true  // GM only
   })
@@ -350,9 +439,17 @@ await roll.evaluate()
 // Send to chat
 await roll.toMessage({
   speaker: ChatMessage.getSpeaker({ actor }),
-  flavor: 'Attack Roll'
+  flavor: game.i18n.localize('MY_SYSTEM.AttackRoll')
 })
+
+// V14: visibility is a *message mode*, not a roll mode
+await roll.toMessage(
+  { speaker: ChatMessage.getSpeaker({ actor }) },
+  { messageMode: game.settings.get('core', 'messageMode') }   // 'public' | 'gm' | 'blind' | 'self' | 'ic'
+)
 ```
+
+Booleans inside dice formulas evaluate to `0`/`1` automatically in V14.
 
 ### Roll Formulas
 
@@ -400,11 +497,12 @@ canvas.grid           // Grid configuration
 const token = canvas.tokens.get(tokenId)
 token.document.update({ x: 100, y: 200 })
 
-// Measure distance
-const distance = canvas.grid.measurePath([
+// Measure distance — measurePath returns a GridMeasurePathResult, not a number
+const result = canvas.grid.measurePath([
   { x: token1.x, y: token1.y },
   { x: token2.x, y: token2.y }
 ])
+const distance = result.distance      // in scene units; also .spaces, .cost, .diagonals
 
 // Get controlled tokens
 const controlled = canvas.tokens.controlled
@@ -416,16 +514,19 @@ const controlled = canvas.tokens.controlled
 Hooks.once('init', () => {
   // Preload partials
   foundry.applications.handlebars.loadTemplates([
-    'systems/my-system/templates/partials/ability-score.html',
-    'systems/my-system/templates/partials/item-row.html'
+    'systems/my-system/templates/partials/ability-score.hbs',
+    'systems/my-system/templates/partials/item-row.hbs'
   ])
 })
 ```
 
 Use in templates:
 ```handlebars
-{{> "systems/my-system/templates/partials/ability-score.html" ability=str}}
+{{> "systems/my-system/templates/partials/ability-score.hbs" ability=str}}
 ```
+
+V14 removed the `{{select}}` and `{{colorPicker}}` helpers — use `{{selectOptions}}` and
+the `<color-picker>` element instead.
 
 ## Compendium Access
 

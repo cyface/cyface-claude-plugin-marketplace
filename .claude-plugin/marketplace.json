@@ -14,7 +14,7 @@
     },
     {
       "name": "foundryvtt-dev",
-      "description": "Expert guidance for FoundryVTT v13 system and module development — ApplicationV2 migration, sheets, forms, actions, tabs, drag-drop, hooks, data model, testing, and i18n. Includes a proactive code reviewer for deprecated patterns and common mistakes. Not affiliated with Foundry Gaming LLC.",
+      "description": "Expert guidance for FoundryVTT v14 system and module development — data models, Active Effects V2, ApplicationV2 sheets, Regions, Scene Levels, hooks, testing, and i18n. Includes a proactive code reviewer for deprecated patterns and common mistakes, plus a V13-to-V14 migration reference. Not affiliated with Foundry Gaming LLC.",
       "source": "./plugins/foundryvtt-dev",
       "category": "development"
     },
